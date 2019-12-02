@@ -1,0 +1,3 @@
+curl "http://localhost:5000/auth-pg/get-users"
+
+curl -H "Content-Type: application/json" -d "{\"email\":\"c@c.com\",\"username\":\"xyz\",\"pw\":\"xyz\"}" "http://localhost:5000/auth-pg/add-user"
