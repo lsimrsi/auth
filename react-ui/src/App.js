@@ -41,18 +41,23 @@ function App() {
   }
 
   useEffect(() => {
-    if (!window.gapi) return;
-
-    window.gapi.signin2.render('gs2', {
-      'scope': 'https://www.googleapis.com/auth/plus.login',
-      'width': 200,
-      'height': 50,
-      'longtitle': true,
-      'theme': 'dark',
-      'onsuccess': onGoogleSignIn,
-      'onfailure': onGoogleSignInFailed
-    })
-  }, [])
+    function addBtn() {
+      window.gapi.signin2.render('gs2', {
+        'scope': 'https://www.googleapis.com/auth/plus.login',
+        'width': 200,
+        'height': 50,
+        'longtitle': true,
+        'theme': 'dark',
+        'onsuccess': onGoogleSignIn,
+        'onfailure': onGoogleSignInFailed
+      })
+    }
+    if (window.gapi) {
+      addBtn();
+    } else {
+      setTimeout(addBtn, 200);
+    }
+  }, []);
 
   const onGoogleSignIn = async (googleUser) => {
     console.log('googleUser', googleUser);
