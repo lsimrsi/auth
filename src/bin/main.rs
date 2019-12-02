@@ -2,14 +2,17 @@
 extern crate serde_derive;
 
 use actix_files as fs;
-use actix_web::{guard, http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
+use actix_web::{guard, http, middleware, web, App, HttpRequest, HttpResponse, ResponseError, HttpServer};
+use actix_web::http::StatusCode;
 use failure::Error;
 use futures::Future;
 use r2d2_postgres::r2d2;
 use r2d2_postgres::PostgresConnectionManager;
 use serde_json;
+use serde_json::{json, to_string_pretty};
 use std::env;
 use auth::auth_google;
+use std::fmt::{self, Formatter, Result as FmtResult};
 
 fn p404() -> Result<fs::NamedFile, Error> {
     Ok(fs::NamedFile::open("static/404.html")?.set_status_code(http::StatusCode::NOT_FOUND))
@@ -20,6 +23,39 @@ fn get_server_port() -> u16 {
         .unwrap_or_else(|_| 5000.to_string())
         .parse()
         .expect("PORT must be a number")
+}
+
+#[derive(Debug, Serialize)]
+struct AuthError {
+    msg: String,
+    status: u16,
+}
+
+impl AuthError {
+    fn new(msg: &str, status: u16) -> AuthError {
+        AuthError {
+            msg: msg.to_owned(),
+            status
+        }
+    }
+}
+
+impl fmt::Display for AuthError {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "{}", to_string_pretty(self).unwrap())
+    }
+}
+
+impl ResponseError for AuthError {
+    // builds the actual response to send back when an error occurs
+    fn render_response(&self) -> HttpResponse {
+        let err_json = json!({ "error": self.msg });
+        HttpResponse::build(StatusCode::from_u16(self.status).unwrap()).json(err_json)
+    }
+}
+
+impl std::error::Error for AuthError {
+    fn description(&self) -> &str { &self.msg }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -36,17 +72,17 @@ struct User {
 }
 
 impl User {
-    fn is_valid(&self) -> bool {
+    fn is_valid(&self) -> Result<(), AuthError> {
         if self.username == "" {
-            return false;
+            return Err(AuthError::new("Nah", 500));
         }
         if self.email == "" {
-            return false;
+            return Err(AuthError::new("Nah", 500));
         }
         if self.pw == "" {
-            return false;
+            return Err(AuthError::new("Nah", 500));
         }
-        return true;
+        Ok(())
     }
 }
 
@@ -86,11 +122,18 @@ fn add_user(
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
-        if !user.is_valid() {
-            return Err(failure::err_msg("User not valid".to_string()));
-        }
+        user.is_valid()?;
 
-        let conn = pool.get()?;
+        let conn = match pool.get() {
+            Ok(conn) => conn,
+            Err(err) => {
+                println!("add_user: {}", err);
+                return Err(AuthError {
+                    msg: "Internal Error".to_string(),
+                    status: 500,
+                })
+            }
+        };
         let rows_updated = conn.execute(
             "INSERT INTO users (email, username, pw) VALUES ($1, $2, $3)",
             &[&user.email, &user.username, &user.pw],
@@ -98,13 +141,18 @@ fn add_user(
 
         match rows_updated {
             Ok(num) => Ok(num),
-            Err(err) => Err(failure::err_msg(err.to_string())),
+            Err(err) => {
+                println!("add_user: {}", err);
+                Err(AuthError {
+                    msg: "Internal Error".to_string(),
+                    status: 500,
+                })
+            },
         }
     })
     .map_err(|err| {
         println!("add_user: {}", err);
-        let json_error = serde_json::to_string("0").unwrap();
-        actix_web::Error::from(failure::err_msg(json_error))
+        actix_web::Error::from(err)
     })
     .and_then(|res| {
         let res_json = serde_json::to_string(&res.to_owned()).unwrap_or("".to_owned());
