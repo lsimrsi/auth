@@ -36,7 +36,7 @@ struct Header {
 pub struct GooglePayload {
     pub iss: String,
     pub azp: String,
-    pub auds: String,
+    pub aud: String,
     pub sub: String,
     pub email: String,
     pub email_verified: bool,

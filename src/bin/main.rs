@@ -8,7 +8,7 @@ use auth::auth_google;
 use futures::Future;
 use r2d2_postgres::r2d2;
 use r2d2_postgres::PostgresConnectionManager;
-use serde_json;
+use serde_json::{self, json};
 use std::env;
 
 fn p404() -> Result<fs::NamedFile, actix_web::Error> {
@@ -38,13 +38,13 @@ struct User {
 impl User {
     fn is_valid(&self) -> Result<(), AuthError> {
         if self.email == "" {
-            return Err(AuthError::new("Please enter your email.", "", 400));
+            return Err(AuthError::new("email", "Please enter your email.", "", 400));
         }
         if self.username == "" {
-            return Err(AuthError::new("Please enter a username.", "", 400));
+            return Err(AuthError::new("username", "Please enter a username.", "", 400));
         }
         if self.pw == "" {
-            return Err(AuthError::new("Please enter a password.", "", 400));
+            return Err(AuthError::new("password", "Please enter a password.", "", 400));
         }
         Ok(())
     }
@@ -128,14 +128,11 @@ fn auth_google(
         };
 
         let conn = pool.get()?;
-        let mut username = "".to_owned();
 
+        let mut username = "".to_owned();
         let rows = match conn.query(
-            "
-        SELECT username FROM users
-        WHERE email=$1 AND username=$2;",
-            &[&token_data.email, &token_data.given_name],
-        ) {
+            "SELECT username FROM users WHERE email=$1",
+            &[&token_data.email]) {
             Ok(r) => r,
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         };
@@ -156,6 +153,7 @@ fn auth_google(
                 Err(err) => return Err(AuthError::internal_error(&err.to_string())),
             }
         } else {
+            // todo: log user in
             Ok(1)
         }
     })
@@ -164,10 +162,9 @@ fn auth_google(
         actix_web::Error::from(AuthError::from(err))
     })
     .and_then(|res| {
-        let res_json = serde_json::to_string(&res.to_owned()).unwrap_or("".to_owned());
         HttpResponse::Ok()
             .content_type("application/json")
-            .body(res_json)
+            .body(res.to_string())
     })
 }
 

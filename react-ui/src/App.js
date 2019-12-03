@@ -5,10 +5,13 @@ function App() {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [usernameError, setUsernameError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [generalError, setGeneralError] = useState("");
 
   const onSubmit = async e => {
     e.preventDefault();
-    console.log('submit');
 
     let data = {
       email,
@@ -28,7 +31,7 @@ function App() {
     let json = await res.json();
     if (!json) return;
 
-    console.log('json', json);
+    checkErrors(json);
   }
 
   const onInputChange = e => {
@@ -60,8 +63,6 @@ function App() {
   }, []);
 
   const onGoogleSignIn = async (googleUser) => {
-    console.log('googleUser', googleUser);
-
     let data = {
       id_token: googleUser.getAuthResponse().id_token
     }
@@ -74,11 +75,28 @@ function App() {
       }
     });
     if (!res) return;
-
     let json = await res.json();
+    console.log('res.json', json);
     if (!json) return;
 
-    console.log('json', json);
+    checkErrors(json);
+  }
+
+  const checkErrors = (json) => {
+    setEmailError("");
+    setUsernameError("");
+    setPasswordError("");
+    setGeneralError("");
+
+    if (!json.error) return;
+
+    switch (json.error.context) {
+      case "email": setEmailError(json.error.message); break;
+      case "username": setUsernameError(json.error.message); break;
+      case "password": setPasswordError(json.error.message); break;
+      case "general": setGeneralError(json.error.message); break;
+      default: break;
+    }
   }
 
   const onGoogleSignInFailed = (e) => {
@@ -89,10 +107,14 @@ function App() {
     <div className="app">
       <header>
       </header>
+      <p className="error">{generalError}</p>
       <form onSubmit={onSubmit}>
         <input name="email" placeholder="Email" onChange={onInputChange} value={email} />
+        <p className="error">{emailError}</p>
         <input name="username" placeholder="Username" onChange={onInputChange} value={username} />
-        <input name="password" placeholder="Password" onChange={onInputChange} value={password} />
+        <p className="error">{usernameError}</p>
+        <input name="password" placeholder="Password" onChange={onInputChange} value={password} type="password" />
+        <p className="error">{passwordError}</p>
         <input type="submit" value="Submit" />
       </form>
       <div id="gs2"></div>
