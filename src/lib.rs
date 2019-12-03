@@ -2,3 +2,4 @@
 extern crate serde_derive;
 
 pub mod auth_google;
+pub mod auth_error;

@@ -2,19 +2,16 @@
 extern crate serde_derive;
 
 use actix_files as fs;
-use actix_web::{guard, http, middleware, web, App, HttpRequest, HttpResponse, ResponseError, HttpServer};
-use actix_web::http::StatusCode;
-use failure::Error;
+use actix_web::{guard, http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
+use auth::auth_error::*;
+use auth::auth_google;
 use futures::Future;
 use r2d2_postgres::r2d2;
 use r2d2_postgres::PostgresConnectionManager;
 use serde_json;
-use serde_json::{json, to_string_pretty};
 use std::env;
-use auth::auth_google;
-use std::fmt::{self, Formatter, Result as FmtResult};
 
-fn p404() -> Result<fs::NamedFile, Error> {
+fn p404() -> Result<fs::NamedFile, actix_web::Error> {
     Ok(fs::NamedFile::open("static/404.html")?.set_status_code(http::StatusCode::NOT_FOUND))
 }
 
@@ -23,39 +20,6 @@ fn get_server_port() -> u16 {
         .unwrap_or_else(|_| 5000.to_string())
         .parse()
         .expect("PORT must be a number")
-}
-
-#[derive(Debug, Serialize)]
-struct AuthError {
-    msg: String,
-    status: u16,
-}
-
-impl AuthError {
-    fn new(msg: &str, status: u16) -> AuthError {
-        AuthError {
-            msg: msg.to_owned(),
-            status
-        }
-    }
-}
-
-impl fmt::Display for AuthError {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "{}", to_string_pretty(self).unwrap())
-    }
-}
-
-impl ResponseError for AuthError {
-    // builds the actual response to send back when an error occurs
-    fn render_response(&self) -> HttpResponse {
-        let err_json = json!({ "error": self.msg });
-        HttpResponse::build(StatusCode::from_u16(self.status).unwrap()).json(err_json)
-    }
-}
-
-impl std::error::Error for AuthError {
-    fn description(&self) -> &str { &self.msg }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -73,14 +37,14 @@ struct User {
 
 impl User {
     fn is_valid(&self) -> Result<(), AuthError> {
-        if self.username == "" {
-            return Err(AuthError::new("Nah", 500));
-        }
         if self.email == "" {
-            return Err(AuthError::new("Nah", 500));
+            return Err(AuthError::new("Please enter your email.", "", 400));
+        }
+        if self.username == "" {
+            return Err(AuthError::new("Please enter a username.", "", 400));
         }
         if self.pw == "" {
-            return Err(AuthError::new("Nah", 500));
+            return Err(AuthError::new("Please enter a password.", "", 400));
         }
         Ok(())
     }
@@ -93,21 +57,25 @@ fn get_users(
         let mut users: Vec<String> = Vec::new();
 
         let conn = pool.get()?;
-        for row in &conn.query("SELECT username FROM users;", &[])? {
+
+        let rows = match conn.query("SELECT username FROM users;", &[]) {
+            Ok(r) => r,
+            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
+        };
+
+        for row in &rows {
             let username: String = row.get(0);
             users.push(username);
         }
 
-        if users.is_empty() {
-            Err(failure::err_msg("No users".to_owned()))
-        } else {
-            let json_users = serde_json::to_string(&users)?;
-            Ok(json_users)
+        match serde_json::to_string(&users) {
+            Ok(users) => Ok(users),
+            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         }
     })
     .map_err(|err| {
         println!("get_users: {}", err);
-        actix_web::Error::from(failure::err_msg("No results".to_owned()))
+        actix_web::Error::from(AuthError::from(err))
     })
     .and_then(|res| {
         HttpResponse::Ok()
@@ -124,16 +92,8 @@ fn add_user(
     actix_web::web::block(move || {
         user.is_valid()?;
 
-        let conn = match pool.get() {
-            Ok(conn) => conn,
-            Err(err) => {
-                println!("add_user: {}", err);
-                return Err(AuthError {
-                    msg: "Internal Error".to_string(),
-                    status: 500,
-                })
-            }
-        };
+        let conn = pool.get()?;
+
         let rows_updated = conn.execute(
             "INSERT INTO users (email, username, pw) VALUES ($1, $2, $3)",
             &[&user.email, &user.username, &user.pw],
@@ -141,24 +101,17 @@ fn add_user(
 
         match rows_updated {
             Ok(num) => Ok(num),
-            Err(err) => {
-                println!("add_user: {}", err);
-                Err(AuthError {
-                    msg: "Internal Error".to_string(),
-                    status: 500,
-                })
-            },
+            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         }
     })
     .map_err(|err| {
         println!("add_user: {}", err);
-        actix_web::Error::from(err)
+        actix_web::Error::from(AuthError::from(err))
     })
     .and_then(|res| {
-        let res_json = serde_json::to_string(&res.to_owned()).unwrap_or("".to_owned());
         HttpResponse::Ok()
             .content_type("application/json")
-            .body(res_json)
+            .body(res.to_string())
     })
 }
 
@@ -169,13 +122,25 @@ fn auth_google(
     google: web::Data<auth_google::GoogleSignin>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
-        let token_data = google.decode_token(&token.id_token)?;
+        let token_data = match google.decode_token(&token.id_token) {
+            Ok(td) => td,
+            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
+        };
 
         let conn = pool.get()?;
         let mut username = "".to_owned();
-        for row in &conn.query("
-            SELECT username FROM users
-            WHERE email=$1 AND username=$2;", &[&token_data.email, &token_data.given_name])? {
+
+        let rows = match conn.query(
+            "
+        SELECT username FROM users
+        WHERE email=$1 AND username=$2;",
+            &[&token_data.email, &token_data.given_name],
+        ) {
+            Ok(r) => r,
+            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
+        };
+
+        for row in &rows {
             username = row.get(0);
             break;
         }
@@ -188,7 +153,7 @@ fn auth_google(
 
             match rows_updated {
                 Ok(num) => Ok(num),
-                Err(err) => Err(failure::err_msg(err.to_string())),
+                Err(err) => return Err(AuthError::internal_error(&err.to_string())),
             }
         } else {
             Ok(1)
@@ -196,8 +161,7 @@ fn auth_google(
     })
     .map_err(|err| {
         println!("auth_google: {}", err);
-        let json_error = serde_json::to_string("Could not validate token").unwrap();
-        actix_web::Error::from(failure::err_msg(json_error))
+        actix_web::Error::from(AuthError::from(err))
     })
     .and_then(|res| {
         let res_json = serde_json::to_string(&res.to_owned()).unwrap_or("".to_owned());
@@ -228,9 +192,7 @@ fn main() {
                     .route("/get-users", web::get().to_async(get_users))
                     .route("/add-user", web::post().to_async(add_user)),
             )
-            .service(
-                web::scope("/auth").route("/google", web::post().to_async(auth_google)),
-            )
+            .service(web::scope("/auth").route("/google", web::post().to_async(auth_google)))
             .service(fs::Files::new("/", "static/build").index_file("index.html"))
             .default_service(
                 // 404 for GET request
