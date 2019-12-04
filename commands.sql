@@ -9,5 +9,4 @@ create table users (
 CREATE UNIQUE INDEX id_idx ON users (id);
 
 insert into users (email, username, pw) values
-('luke.simpson@ruralsourcing.com', 'default', 'asdf'),
 ('asdf@asdf.com', 'a', 'asdf');

@@ -88,13 +88,13 @@ function App() {
     setPasswordError("");
     setGeneralError("");
 
-    if (!json.error) return;
+    if (!json.data.type == "error") return;
 
-    switch (json.error.context) {
-      case "email": setEmailError(json.error.message); break;
-      case "username": setUsernameError(json.error.message); break;
-      case "password": setPasswordError(json.error.message); break;
-      case "general": setGeneralError(json.error.message); break;
+    switch (json.data.context) {
+      case "email": setEmailError(json.data.message); break;
+      case "username": setUsernameError(json.data.message); break;
+      case "password": setPasswordError(json.data.message); break;
+      case "general": setGeneralError(json.data.message); break;
       default: break;
     }
   }

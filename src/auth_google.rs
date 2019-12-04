@@ -90,6 +90,7 @@ impl GoogleSignin {
 
         let mut validation = Validation {
             leeway: 10,
+            iss: Some("accounts.google.com".to_owned()),
             algorithms: vec![Algorithm::RS256],
             ..Validation::default()
         };
@@ -102,11 +103,10 @@ impl GoogleSignin {
                 return Err(failure::err_msg("Token is invalid: 3"));
             }
         };
-
-        if !(token_data.claims.iss == "accounts.google.com") {
-            println!("google decode_token: iss (issuer) did not match");
-            return Err(failure::err_msg("Token is invalid: 2".to_string()));
-        }
+        // if !(token_data.claims.iss == "accounts.google.com") {
+        //     println!("google decode_token: iss (issuer) did not match");
+        //     return Err(failure::err_msg("Token is invalid: 2".to_string()));
+        // }
         Ok(token_data.claims)
     }
 }

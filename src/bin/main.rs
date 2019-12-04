@@ -35,6 +35,22 @@ struct User {
     pw: String,
 }
 
+fn authenticated() -> serde_json::value::Value {
+    json!({ "data": {
+        "type": "success",
+        "context": "signin",
+        "message": "Authenticated!"
+    } })
+}
+
+fn registered() -> serde_json::value::Value {
+    json!({ "data": {
+        "type": "success",
+        "context": "signin",
+        "message": "Registered!"
+    } })
+}
+
 impl User {
     fn is_valid(&self) -> Result<(), AuthError> {
         if self.email == "" {
@@ -94,6 +110,23 @@ fn add_user(
 
         let conn = pool.get()?;
 
+        let mut id = 0;
+        let rows = match conn.query(
+            "SELECT id FROM users WHERE email=$1",
+            &[&user.email]) {
+            Ok(r) => r,
+            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
+        };
+
+        for row in &rows {
+            id = row.get(0);
+            break;
+        }
+
+        if id > 0 {
+            return Err(AuthError::new("email", "This email has already been registered.", "", 400));
+        }
+
         let rows_updated = conn.execute(
             "INSERT INTO users (email, username, pw) VALUES ($1, $2, $3)",
             &[&user.email, &user.username, &user.pw],
@@ -145,16 +178,16 @@ fn auth_google(
         if username == "" {
             let rows_updated = conn.execute(
                 "INSERT INTO users (email, username, pw) VALUES ($1, $2, $3)",
-                &[&token_data.email, &token_data.name, &""],
+                &[&token_data.email, &token_data.given_name, &""],
             );
 
             match rows_updated {
-                Ok(num) => Ok(num),
+                Ok(_) => Ok(registered()),
                 Err(err) => return Err(AuthError::internal_error(&err.to_string())),
             }
         } else {
             // todo: log user in
-            Ok(1)
+            Ok(authenticated())
         }
     })
     .map_err(|err| {
