@@ -11,17 +11,6 @@ use r2d2_postgres::PostgresConnectionManager;
 use serde_json::{self, json};
 use std::env;
 
-fn p404() -> Result<fs::NamedFile, actix_web::Error> {
-    Ok(fs::NamedFile::open("static/404.html")?.set_status_code(http::StatusCode::NOT_FOUND))
-}
-
-fn get_server_port() -> u16 {
-    env::var("PORT")
-        .unwrap_or_else(|_| 5000.to_string())
-        .parse()
-        .expect("PORT must be a number")
-}
-
 #[derive(Serialize, Deserialize)]
 struct GoogleToken {
     id_token: String,
@@ -73,10 +62,20 @@ impl User {
             return Err(AuthError::new("email", "Please enter your email.", "", 400));
         }
         if self.username == "" {
-            return Err(AuthError::new("username", "Please enter a username.", "", 400));
+            return Err(AuthError::new(
+                "username",
+                "Please enter a username.",
+                "",
+                400,
+            ));
         }
         if self.pw == "" {
-            return Err(AuthError::new("password", "Please enter a password.", "", 400));
+            return Err(AuthError::new(
+                "password",
+                "Please enter a password.",
+                "",
+                400,
+            ));
         }
         Ok(())
     }
@@ -123,32 +122,40 @@ fn add_user(
 
         let conn = pool.get()?;
 
-        let mut username = "".to_owned();
-        let rows = match conn.query(
-            "SELECT username FROM users WHERE email=$1",
-            &[&user.email]) {
-            Ok(r) => r,
-            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
-        };
-
-        for row in &rows {
-            username = row.get(0);
-            break;
-        }
-
-        if username == user.username {
-            return Err(AuthError::new("username", "This name has been taken.", "", 400));
-        }
-        if !(username == "") {
-            return Err(AuthError::new("email", "This email has already been registered.", "", 400));
-        }
-
         match conn.execute(
             "INSERT INTO users (email, username, pw) VALUES ($1, $2, $3)",
             &[&user.email, &user.username, &user.pw],
         ) {
             Ok(_) => Ok(()),
-            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
+            Err(err) => {
+                if let Some(dberr) = err.as_db() {
+                    println!("some dberr");
+                    // unique violation
+                    if !(dberr.code.code() == "23505") {
+                        println!("code doesn't equal 23505");
+                        return Err(AuthError::internal_error(&err.to_string()));
+                    }
+                    if let Some(constraint) = &dberr.constraint {
+                        println!("constraint: {}", constraint);
+                        match constraint.as_ref() {
+                            "users_email_key" => return Err(AuthError::new(
+                                "email",
+                                "This email has already been registered.",
+                                "",
+                                500,
+                            )),
+                            "users_username_key" => return Err(AuthError::new(
+                                "username",
+                                "This username has already been taken.",
+                                "",
+                                500,
+                            )),
+                            _ => return Err(AuthError::internal_error(&err.to_string()))
+                        }
+                    }
+                }
+                Err(AuthError::internal_error(&err.to_string()))
+            }
         }
     })
     .map_err(|err| {
@@ -176,31 +183,30 @@ fn auth_google(
 
         let conn = pool.get()?;
 
-        let mut username = "".to_owned();
+        let mut id = 0;
         let rows = match conn.query(
-            "SELECT username FROM users WHERE email=$1",
-            &[&token_data.email]) {
+            "SELECT id FROM users WHERE email=$1",
+            &[&token_data.email],
+        ) {
             Ok(r) => r,
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         };
 
         for row in &rows {
-            username = row.get(0);
+            id = row.get(0);
             break;
         }
 
-        if username == "" {
-            let rows_updated = conn.execute(
+        // todo: send token
+        if id == 0 {
+            if let Err(err) = conn.execute(
                 "INSERT INTO users (email, username, pw) VALUES ($1, $2, $3)",
                 &[&token_data.email, &token_data.given_name, &""],
-            );
-
-            match rows_updated {
-                Ok(_) => Ok(registered()),
-                Err(err) => return Err(AuthError::internal_error(&err.to_string())),
+            ) {
+                return Err(AuthError::internal_error(&err.to_string()));
             }
+            Ok(registered())
         } else {
-            // todo: log user in
             Ok(authenticated())
         }
     })
@@ -254,4 +260,15 @@ fn main() {
     .unwrap()
     .run()
     .unwrap();
+}
+
+fn p404() -> Result<fs::NamedFile, actix_web::Error> {
+    Ok(fs::NamedFile::open("static/404.html")?.set_status_code(http::StatusCode::NOT_FOUND))
+}
+
+fn get_server_port() -> u16 {
+    env::var("PORT")
+        .unwrap_or_else(|_| 5000.to_string())
+        .parse()
+        .expect("PORT must be a number")
 }
