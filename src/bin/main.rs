@@ -51,6 +51,22 @@ fn registered() -> serde_json::value::Value {
     } })
 }
 
+fn get_users_json(data: Vec<String>) -> serde_json::value::Value {
+    json!({ "data": {
+        "type": "success",
+        "context": "users",
+        "message": data
+    } })
+}
+
+fn add_user_json() -> serde_json::value::Value {
+    json!({ "data": {
+        "type": "success",
+        "context": "signup",
+        "message": "Registered!"
+    } })
+}
+
 impl User {
     fn is_valid(&self) -> Result<(), AuthError> {
         if self.email == "" {
@@ -84,10 +100,7 @@ fn get_users(
             users.push(username);
         }
 
-        match serde_json::to_string(&users) {
-            Ok(users) => Ok(users),
-            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
-        }
+        Ok(users)
     })
     .map_err(|err| {
         println!("get_users: {}", err);
@@ -96,7 +109,7 @@ fn get_users(
     .and_then(|res| {
         HttpResponse::Ok()
             .content_type("application/json")
-            .body(res.to_owned())
+            .body(get_users_json(res))
     })
 }
 
@@ -133,7 +146,7 @@ fn add_user(
         );
 
         match rows_updated {
-            Ok(num) => Ok(num),
+            Ok(_) => Ok(()),
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         }
     })
@@ -141,10 +154,10 @@ fn add_user(
         println!("add_user: {}", err);
         actix_web::Error::from(AuthError::from(err))
     })
-    .and_then(|res| {
+    .and_then(|_| {
         HttpResponse::Ok()
             .content_type("application/json")
-            .body(res.to_string())
+            .body(add_user_json())
     })
 }
 

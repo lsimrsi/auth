@@ -5,6 +5,9 @@ function App() {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+
+  const [users, setUsers] = useState([]);
+
   const [emailError, setEmailError] = useState("");
   const [usernameError, setUsernameError] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -103,6 +106,18 @@ function App() {
     console.log('e', e);
   }
 
+  const getUsers = async () => {
+    let res = await fetch(`/auth-db/get-users`, {
+      method: 'GET',
+    });
+    if (!res) return;
+    let json = await res.json();
+    console.log('getUsers json', json);
+    if (!json) return;
+    checkErrors(json);
+    setUsers(json.data.message);
+  }
+
   return (
     <div className="app">
       <header>
@@ -118,6 +133,10 @@ function App() {
         <input type="submit" value="Submit" />
       </form>
       <div id="gs2"></div>
+      <button onClick={getUsers}>Get Users</button>
+      {users.map((item) => {
+        return <p>{item}</p>
+      })}
     </div>
   );
 }
