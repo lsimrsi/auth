@@ -25,14 +25,14 @@ struct User {
     password: String,
 }
 
-fn make_success_json<T>(context: &str, message: T) -> serde_json::value::Value
+fn make_success_json<T>(context: &str, data: T) -> serde_json::value::Value
 where
     T: Into<serde_json::value::Value> + serde::Serialize,
 {
     json!({
         "type": "success",
         "context": context,
-        "message": message
+        "data": data
     })
 }
 

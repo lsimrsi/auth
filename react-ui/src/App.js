@@ -76,9 +76,8 @@ function App() {
         'Content-Type': 'application/json'
       }
     });
-    if (!res) return;
+
     let json = await res.json();
-    console.log('res.json', json);
     if (!json) return;
 
     checkErrors(json);
@@ -93,10 +92,10 @@ function App() {
     if (!json.type == "error") return;
 
     switch (json.context) {
-      case "email": setEmailError(json.message); break;
-      case "username": setUsernameError(json.message); break;
-      case "password": setPasswordError(json.message); break;
-      case "general": setGeneralError(json.message); break;
+      case "email": setEmailError(json.data); break;
+      case "username": setUsernameError(json.data); break;
+      case "password": setPasswordError(json.data); break;
+      case "general": setGeneralError(json.data); break;
       default: break;
     }
   }
@@ -109,12 +108,11 @@ function App() {
     let res = await fetch(`/auth-db/get-users`, {
       method: 'GET',
     });
-    if (!res) return;
     let json = await res.json();
-    console.log('getUsers json', json);
     if (!json) return;
+
     checkErrors(json);
-    setUsers(json.message);
+    setUsers(json.data);
   }
 
   return (

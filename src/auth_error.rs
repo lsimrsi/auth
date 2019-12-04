@@ -1,9 +1,8 @@
 use std::fmt::{self, Formatter, Result as FmtResult};
-use actix_web::{HttpResponse, HttpRequest, ResponseError, Responder};
+use actix_web::{HttpResponse, ResponseError};
 use actix_web::http::StatusCode;
 use actix_web::error::BlockingError;
 use serde_json::{json, to_string_pretty};
-use serde_json::value::Value;
 use r2d2_postgres::r2d2;
 
 #[derive(Debug, Serialize)]
@@ -73,7 +72,7 @@ impl ResponseError for AuthError {
         let err_json = json!({
             "type": "error",
             "context": self.context,
-            "message": self.client_message
+            "data": self.client_message
         });
         HttpResponse::build(StatusCode::from_u16(self.status).unwrap()).json(err_json)
     }
