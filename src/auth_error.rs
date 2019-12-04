@@ -70,11 +70,11 @@ impl fmt::Display for AuthError {
 
 impl ResponseError for AuthError {
     fn render_response(&self) -> HttpResponse {
-        let err_json = json!({ "data": {
+        let err_json = json!({
             "type": "error",
             "context": self.context,
             "message": self.client_message
-        } });
+        });
         HttpResponse::build(StatusCode::from_u16(self.status).unwrap()).json(err_json)
     }
 }

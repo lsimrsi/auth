@@ -10,6 +10,7 @@ use r2d2_postgres::r2d2;
 use r2d2_postgres::PostgresConnectionManager;
 use serde_json::{self, json};
 use std::env;
+use serde;
 
 #[derive(Serialize, Deserialize)]
 struct GoogleToken {
@@ -24,36 +25,12 @@ struct User {
     pw: String,
 }
 
-fn authenticated() -> serde_json::value::Value {
-    json!({ "data": {
+fn make_success_json<T: Into<serde_json::value::Value> + serde::Serialize>(context: &str, message: T) -> serde_json::value::Value {
+    json!({
         "type": "success",
-        "context": "signin",
-        "message": "Authenticated!"
-    } })
-}
-
-fn registered() -> serde_json::value::Value {
-    json!({ "data": {
-        "type": "success",
-        "context": "signin",
-        "message": "Registered!"
-    } })
-}
-
-fn get_users_json(data: Vec<String>) -> serde_json::value::Value {
-    json!({ "data": {
-        "type": "success",
-        "context": "users",
-        "message": data
-    } })
-}
-
-fn add_user_json() -> serde_json::value::Value {
-    json!({ "data": {
-        "type": "success",
-        "context": "signup",
-        "message": "Registered!"
-    } })
+        "context": context,
+        "message": message
+    })
 }
 
 impl User {
@@ -108,7 +85,7 @@ fn get_users(
     .and_then(|res| {
         HttpResponse::Ok()
             .content_type("application/json")
-            .body(get_users_json(res))
+            .body(make_success_json("users", res))
     })
 }
 
@@ -165,7 +142,7 @@ fn add_user(
     .and_then(|_| {
         HttpResponse::Ok()
             .content_type("application/json")
-            .body(add_user_json())
+            .body(make_success_json("signup", "Registered!"))
     })
 }
 
@@ -205,9 +182,9 @@ fn auth_google(
             ) {
                 return Err(AuthError::internal_error(&err.to_string()));
             }
-            Ok(registered())
+            Ok("Registered!")
         } else {
-            Ok(authenticated())
+            Ok("Authenticated!")
         }
     })
     .map_err(|err| {
@@ -217,7 +194,7 @@ fn auth_google(
     .and_then(|res| {
         HttpResponse::Ok()
             .content_type("application/json")
-            .body(res.to_string())
+            .body(make_success_json("google", res))
     })
 }
 
