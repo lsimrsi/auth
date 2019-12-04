@@ -4,7 +4,8 @@ create table users (
     email text not null,
     username text not null,
     pw text not null,
-    UNIQUE (email, username)
+    UNIQUE (email),
+    UNIQUE (username)
 );
 CREATE UNIQUE INDEX id_idx ON users (id);
 

@@ -123,29 +123,30 @@ fn add_user(
 
         let conn = pool.get()?;
 
-        let mut id = 0;
+        let mut username = "".to_owned();
         let rows = match conn.query(
-            "SELECT id FROM users WHERE email=$1",
+            "SELECT username FROM users WHERE email=$1",
             &[&user.email]) {
             Ok(r) => r,
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         };
 
         for row in &rows {
-            id = row.get(0);
+            username = row.get(0);
             break;
         }
 
-        if id > 0 {
+        if username == user.username {
+            return Err(AuthError::new("username", "This name has been taken.", "", 400));
+        }
+        if !(username == "") {
             return Err(AuthError::new("email", "This email has already been registered.", "", 400));
         }
 
-        let rows_updated = conn.execute(
+        match conn.execute(
             "INSERT INTO users (email, username, pw) VALUES ($1, $2, $3)",
             &[&user.email, &user.username, &user.pw],
-        );
-
-        match rows_updated {
+        ) {
             Ok(_) => Ok(()),
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         }
