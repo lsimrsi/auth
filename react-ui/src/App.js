@@ -13,38 +13,6 @@ function App() {
   const [passwordError, setPasswordError] = useState("");
   const [generalError, setGeneralError] = useState("");
 
-  const onSubmit = async e => {
-    e.preventDefault();
-
-    let data = {
-      email,
-      username,
-      password,
-    }
-
-    let res = await fetch(`/auth-db/add-user`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-
-    let json = await res.json();
-    if (!json) return;
-
-    checkErrors(json);
-  }
-
-  const onInputChange = e => {
-    switch (e.target.name) {
-      case "email": setEmail(e.target.value); break;
-      case "username": setUsername(e.target.value); break;
-      case "password": setPassword(e.target.value); break;
-      default: break;
-    }
-  }
-
   useEffect(() => {
     function addBtn() {
       window.gapi.signin2.render('gs2', {
@@ -64,6 +32,37 @@ function App() {
     }
   }, []);
 
+  const onSubmit = async e => {
+    e.preventDefault();
+
+    let data = {
+      email,
+      username,
+      password,
+    }
+
+    let res = await fetch(`/auth-db/add-user`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    let json = await res.json();
+
+    checkErrors(json);
+  }
+
+  const onInputChange = e => {
+    switch (e.target.name) {
+      case "email": setEmail(e.target.value); break;
+      case "username": setUsername(e.target.value); break;
+      case "password": setPassword(e.target.value); break;
+      default: break;
+    }
+  }
+
   const onGoogleSignIn = async (googleUser) => {
     let data = {
       id_token: googleUser.getAuthResponse().id_token
@@ -78,9 +77,22 @@ function App() {
     });
 
     let json = await res.json();
-    if (!json) return;
 
     checkErrors(json);
+  }
+
+  const onGoogleSignInFailed = (e) => {
+    console.log('e', e);
+  }
+
+  const onGetUsers = async () => {
+    let res = await fetch(`/auth-db/get-users`, {
+      method: 'GET',
+    });
+    let json = await res.json();
+
+    checkErrors(json);
+    if (json && json.type == "success") setUsers(json.data);
   }
 
   const checkErrors = (json) => {
@@ -89,6 +101,7 @@ function App() {
     setPasswordError("");
     setGeneralError("");
 
+    if (!json) return;
     if (!json.type == "error") return;
 
     switch (json.context) {
@@ -98,21 +111,6 @@ function App() {
       case "general": setGeneralError(json.data); break;
       default: break;
     }
-  }
-
-  const onGoogleSignInFailed = (e) => {
-    console.log('e', e);
-  }
-
-  const getUsers = async () => {
-    let res = await fetch(`/auth-db/get-users`, {
-      method: 'GET',
-    });
-    let json = await res.json();
-    if (!json) return;
-
-    checkErrors(json);
-    setUsers(json.data);
   }
 
   return (
@@ -130,7 +128,7 @@ function App() {
         <input type="submit" value="Submit" />
       </form>
       <div id="gs2"></div>
-      <button onClick={getUsers}>Get Users</button>
+      <button onClick={onGetUsers}>Get Users</button>
       {users.map((item) => {
         return <p>{item}</p>
       })}

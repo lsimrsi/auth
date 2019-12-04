@@ -69,7 +69,7 @@ fn get_users(
 
         let conn = pool.get()?;
 
-        let rows = match conn.query("SELECT username FROM users;", &[]) {
+        let rows = match conn.query("SELECT username FROM users", &[]) {
             Ok(r) => r,
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         };
