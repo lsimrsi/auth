@@ -22,7 +22,7 @@ struct User {
     id: Option<i32>,
     email: String,
     username: String,
-    pw: String,
+    password: String,
 }
 
 fn make_success_json<T>(context: &str, message: T) -> serde_json::value::Value
@@ -49,7 +49,7 @@ impl User {
                 400,
             ));
         }
-        if self.pw == "" {
+        if self.password == "" {
             return Err(AuthError::new(
                 "password",
                 "Please enter a password.",
@@ -103,8 +103,8 @@ fn add_user(
         let conn = pool.get()?;
 
         match conn.execute(
-            "INSERT INTO users (email, username, pw) VALUES ($1, $2, $3)",
-            &[&user.email, &user.username, &user.pw],
+            "INSERT INTO users (email, username, password) VALUES ($1, $2, $3)",
+            &[&user.email, &user.username, &user.password],
         ) {
             Ok(_) => Ok(()),
             Err(err) => {
@@ -181,7 +181,7 @@ fn auth_google(
         // todo: send token
         if id == 0 {
             if let Err(err) = conn.execute(
-                "INSERT INTO users (email, username, pw) VALUES ($1, $2, $3)",
+                "INSERT INTO users (email, username, password) VALUES ($1, $2, $3)",
                 &[&token_data.email, &token_data.given_name, &""],
             ) {
                 return Err(AuthError::internal_error(&err.to_string()));

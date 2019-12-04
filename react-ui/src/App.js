@@ -19,7 +19,7 @@ function App() {
     let data = {
       email,
       username,
-      pw: password,
+      password,
     }
 
     let res = await fetch(`/auth-db/add-user`, {
@@ -29,7 +29,6 @@ function App() {
         'Content-Type': 'application/json'
       }
     });
-    if (!res) return;
 
     let json = await res.json();
     if (!json) return;
