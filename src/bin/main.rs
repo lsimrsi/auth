@@ -61,6 +61,39 @@ impl User {
     }
 }
 
+fn check_username(
+    pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    user: web::Json<User>,
+) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
+    actix_web::web::block(move || {
+        let conn = pool.get()?;
+        let rows = match conn.query("SELECT username FROM users WHERE username=$1", &[&user.username]) {
+            Ok(r) => r,
+            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
+        };
+
+        if rows.is_empty() {
+            Ok(())
+        } else {
+            return Err(AuthError::new(
+                "username",
+                "This username has already been taken.",
+                "",
+                500,
+            ))
+        }
+    })
+    .map_err(|err| {
+        println!("check_username: {}", err);
+        actix_web::Error::from(AuthError::from(err))
+    })
+    .and_then(|_| {
+        HttpResponse::Ok()
+            .content_type("application/json")
+            .body(make_success_json("username", true))
+    })
+}
+
 fn get_users(
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
@@ -221,7 +254,8 @@ fn main() {
                 web::scope("/auth-db")
                     // .default_service(web::get().to_async(unsplash_get))
                     .route("/get-users", web::get().to_async(get_users))
-                    .route("/add-user", web::post().to_async(add_user)),
+                    .route("/add-user", web::post().to_async(add_user))
+                    .route("/check-username", web::post().to_async(check_username)),
             )
             .service(web::scope("/auth").route("/google", web::post().to_async(auth_google)))
             .service(fs::Files::new("/", "static/build").index_file("index.html"))

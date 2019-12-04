@@ -4,6 +4,7 @@ import './App.css';
 function App() {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
+  const [usernameTimer, setUsernameTimer] = useState("");
   const [password, setPassword] = useState("");
 
   const [users, setUsers] = useState([]);
@@ -31,6 +32,31 @@ function App() {
       setTimeout(addBtn, 200);
     }
   }, []);
+
+  useEffect(() => {
+    clearTimeout(usernameTimer);
+    setUsernameTimer(setTimeout(onUsernameInputChange, 500));
+  }, [username]);
+
+  const onUsernameInputChange = async () => {
+    let data = {
+      email,
+      username,
+      password,
+    }
+
+    let res = await fetch(`/auth-db/check-username`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    let json = await res.json();
+
+    checkErrors(json);
+  }
 
   const onSubmit = async e => {
     e.preventDefault();
@@ -92,7 +118,9 @@ function App() {
     let json = await res.json();
 
     checkErrors(json);
-    if (json && json.type == "success") setUsers(json.data);
+    if (json && json.type == "success") {
+      setUsers(json.data);
+    }
   }
 
   const checkErrors = (json) => {
