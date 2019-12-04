@@ -84,8 +84,7 @@ impl GoogleSignin {
         }
 
         if !b_match {
-            println!("google decode_token: kid does not match any google kid");
-            return Err(failure::err_msg("Token is invalid: 1".to_string()));
+            return Err(failure::err_msg("google decode_token: kid does not match any google kid".to_string()));
         }
 
         let mut validation = Validation {
@@ -96,17 +95,7 @@ impl GoogleSignin {
         };
         validation.set_audience(&["709178405751-3gehnuuoka3ccht41qs4uo175vc6vg3f.apps.googleusercontent.com"]);
 
-        let token_data = match jwt::decode_rsa_components::<GooglePayload>(&token, &n, &e, &validation) {
-            Ok(t) => t,
-            Err(err) => {
-                println!("google decode_token: {}", err.to_string());
-                return Err(failure::err_msg("Token is invalid: 3"));
-            }
-        };
-        // if !(token_data.claims.iss == "accounts.google.com") {
-        //     println!("google decode_token: iss (issuer) did not match");
-        //     return Err(failure::err_msg("Token is invalid: 2".to_string()));
-        // }
+        let token_data = jwt::decode_rsa_components::<GooglePayload>(&token, &n, &e, &validation)?;
         Ok(token_data.claims)
     }
 }
