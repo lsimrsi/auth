@@ -8,9 +8,9 @@ use auth::auth_google;
 use futures::Future;
 use r2d2_postgres::r2d2;
 use r2d2_postgres::PostgresConnectionManager;
+use serde;
 use serde_json::{self, json};
 use std::env;
-use serde;
 
 #[derive(Serialize, Deserialize)]
 struct GoogleToken {
@@ -25,7 +25,10 @@ struct User {
     pw: String,
 }
 
-fn make_success_json<T: Into<serde_json::value::Value> + serde::Serialize>(context: &str, message: T) -> serde_json::value::Value {
+fn make_success_json<T>(context: &str, message: T) -> serde_json::value::Value
+where
+    T: Into<serde_json::value::Value> + serde::Serialize,
+{
     json!({
         "type": "success",
         "context": context,
@@ -115,19 +118,23 @@ fn add_user(
                     if let Some(constraint) = &dberr.constraint {
                         println!("constraint: {}", constraint);
                         match constraint.as_ref() {
-                            "users_email_key" => return Err(AuthError::new(
-                                "email",
-                                "This email has already been registered.",
-                                "",
-                                500,
-                            )),
-                            "users_username_key" => return Err(AuthError::new(
-                                "username",
-                                "This username has already been taken.",
-                                "",
-                                500,
-                            )),
-                            _ => return Err(AuthError::internal_error(&err.to_string()))
+                            "users_email_key" => {
+                                return Err(AuthError::new(
+                                    "email",
+                                    "This email has already been registered.",
+                                    "",
+                                    500,
+                                ))
+                            }
+                            "users_username_key" => {
+                                return Err(AuthError::new(
+                                    "username",
+                                    "This username has already been taken.",
+                                    "",
+                                    500,
+                                ))
+                            }
+                            _ => return Err(AuthError::internal_error(&err.to_string())),
                         }
                     }
                 }
@@ -161,10 +168,7 @@ fn auth_google(
         let conn = pool.get()?;
 
         let mut id = 0;
-        let rows = match conn.query(
-            "SELECT id FROM users WHERE email=$1",
-            &[&token_data.email],
-        ) {
+        let rows = match conn.query("SELECT id FROM users WHERE email=$1", &[&token_data.email]) {
             Ok(r) => r,
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         };
