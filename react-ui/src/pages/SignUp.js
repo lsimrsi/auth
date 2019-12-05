@@ -5,6 +5,7 @@ function SignUp() {
     const [email, setEmail] = useState("");
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+    const [authenticated, setAuthenticated] = useState(false);
 
     const [usernameTimer, setUsernameTimer] = useState("");
 
@@ -33,6 +34,10 @@ function SignUp() {
         let json = await res.json();
 
         checkErrors(json);
+        if (json && json.type === "success") {
+            localStorage.setItem('authapp', json.data);
+            setAuthenticated(true);
+        }
     }
 
     const onInputChange = e => {
@@ -61,7 +66,6 @@ function SignUp() {
             default: break;
         }
     }
-
 
     useEffect(() => {
         const onGoogleSignIn = async (googleUser) => {
@@ -131,18 +135,26 @@ function SignUp() {
 
     return (
         <main id="sign-up">
-            <h1>Sign Up</h1>
-            <p className="error">{generalError}</p>
-            <form onSubmit={onSubmit}>
-                <input name="email" placeholder="Email" onChange={onInputChange} value={email} />
-                <p className="error">{emailError}</p>
-                <input name="username" placeholder="Username" onChange={onInputChange} value={username} />
-                <p className="error">{usernameError}</p>
-                <input name="password" placeholder="Password" onChange={onInputChange} value={password} type="password" />
-                <p className="error">{passwordError}</p>
-                <input type="submit" value="Submit" />
-            </form>
-            <div id="gs2"></div>
+            {!authenticated &&
+            <div id="sign-up-content">
+                <h1>Sign Up</h1>
+                <p className="error">{generalError}</p>
+                <form onSubmit={onSubmit}>
+                    <input name="email" placeholder="Email" onChange={onInputChange} value={email} />
+                    <p className="error">{emailError}</p>
+                    <input name="username" placeholder="Username" onChange={onInputChange} value={username} />
+                    <p className="error">{usernameError}</p>
+                    <input name="password" placeholder="Password" onChange={onInputChange} value={password} type="password" />
+                    <p className="error">{passwordError}</p>
+                    <input type="submit" value="Submit" />
+                </form>
+                <div id="gs2"></div>
+            </div>}
+
+            {authenticated &&
+            <div id="success-content">
+                <h1>Success!</h1>
+            </div>}
         </main>
     )
 }

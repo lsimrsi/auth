@@ -5,10 +5,18 @@ h1,h2,h3,h4,h5,h6,p {
 
 nav {
   display: flex;
+  margin-bottom: 2rem;
 }
 
 nav a {
   font-size: 1.3rem;
   padding: 20px;
   margin: auto;
+}
+
+main {
+  width: 60%;
+  margin: auto;
+  background-color: rgb(238, 238, 238);
+  padding: 20px; 
 }
