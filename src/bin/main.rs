@@ -12,7 +12,7 @@ use serde;
 use serde_json::{self, json};
 use std::env;
 use jsonwebtoken as jwt;
-use jwt::{encode, decode, Header, Algorithm, Validation};
+use jwt::{encode, decode, Header, Validation};
 use chrono::{Duration, Utc};
 
 static JWT_SECRET: &'static str = "wegotasecretoverhere";
@@ -121,11 +121,25 @@ fn check_username(
 }
 
 fn get_users(
+    req: HttpRequest,
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
-    actix_web::web::block(move || {
-        let mut users: Vec<String> = Vec::new();
 
+    let token_string = if let Some(header) = req.headers().get("Authorization") {
+        let mut value = header.to_str().unwrap_or("").to_string();
+        value.drain(0..7); // remove "Bearer " from value
+        value
+    } else {
+        "".to_owned()
+    };
+
+    actix_web::web::block(move || {
+        let validation = Validation {iss: Some(AUTH_APP.to_owned()), ..Default::default()};
+        if let Err(err) = decode::<Claims>(&token_string, JWT_SECRET.as_ref(), &validation) {
+            return Err(AuthError::new("auth", "Please log in or sign up to access this resource.", &err.to_string(), 401));
+        };
+
+        let mut users: Vec<String> = Vec::new();
         let conn = pool.get()?;
 
         let rows = match conn.query("SELECT username FROM users", &[]) {
