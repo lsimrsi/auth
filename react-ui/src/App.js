@@ -1,166 +1,42 @@
-import React, {useState, useEffect} from 'react';
+import React from 'react';
+import {
+  BrowserRouter as Router,
+  Switch,
+  Route,
+  NavLink
+} from "react-router-dom";
+
+import SignUp from './pages/SignUp';
+import Users from './pages/Users';
+import Home from './pages/Home';
+
 import './App.css';
 
 function App() {
-  const [email, setEmail] = useState("");
-  const [username, setUsername] = useState("");
-  const [usernameTimer, setUsernameTimer] = useState("");
-  const [password, setPassword] = useState("");
-
-  const [users, setUsers] = useState([]);
-
-  const [emailError, setEmailError] = useState("");
-  const [usernameError, setUsernameError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [generalError, setGeneralError] = useState("");
-
-  useEffect(() => {
-    function addBtn() {
-      window.gapi.signin2.render('gs2', {
-        'scope': 'https://www.googleapis.com/auth/plus.login',
-        'width': 200,
-        'height': 50,
-        'longtitle': true,
-        'theme': 'dark',
-        'onsuccess': onGoogleSignIn,
-        'onfailure': onGoogleSignInFailed
-      })
-    }
-    if (window.gapi) {
-      addBtn();
-    } else {
-      setTimeout(addBtn, 200);
-    }
-  }, []);
-
-  useEffect(() => {
-    clearTimeout(usernameTimer);
-    setUsernameTimer(setTimeout(onUsernameInputChange, 500));
-  }, [username]);
-
-  const onUsernameInputChange = async () => {
-    let data = {
-      email,
-      username,
-      password,
-    }
-
-    let res = await fetch(`/auth-db/check-username`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-
-    let json = await res.json();
-
-    checkErrors(json);
-  }
-
-  const onSubmit = async e => {
-    e.preventDefault();
-
-    let data = {
-      email,
-      username,
-      password,
-    }
-
-    let res = await fetch(`/auth-db/add-user`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-
-    let json = await res.json();
-
-    checkErrors(json);
-  }
-
-  const onInputChange = e => {
-    switch (e.target.name) {
-      case "email": setEmail(e.target.value); break;
-      case "username": setUsername(e.target.value); break;
-      case "password": setPassword(e.target.value); break;
-      default: break;
-    }
-  }
-
-  const onGoogleSignIn = async (googleUser) => {
-    let data = {
-      id_token: googleUser.getAuthResponse().id_token
-    }
-
-    let res = await fetch(`/auth/google`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-
-    let json = await res.json();
-
-    checkErrors(json);
-  }
-
-  const onGoogleSignInFailed = (e) => {
-    console.log('e', e);
-  }
-
-  const onGetUsers = async () => {
-    let res = await fetch(`/auth-db/get-users`, {
-      method: 'GET',
-    });
-    let json = await res.json();
-
-    checkErrors(json);
-    if (json && json.type == "success") {
-      setUsers(json.data);
-    }
-  }
-
-  const checkErrors = (json) => {
-    setEmailError("");
-    setUsernameError("");
-    setPasswordError("");
-    setGeneralError("");
-
-    if (!json) return;
-    if (!json.type == "error") return;
-
-    switch (json.context) {
-      case "email": setEmailError(json.data); break;
-      case "username": setUsernameError(json.data); break;
-      case "password": setPasswordError(json.data); break;
-      case "general": setGeneralError(json.data); break;
-      default: break;
-    }
-  }
 
   return (
-    <div className="app">
-      <header>
-      </header>
-      <p className="error">{generalError}</p>
-      <form onSubmit={onSubmit}>
-        <input name="email" placeholder="Email" onChange={onInputChange} value={email} />
-        <p className="error">{emailError}</p>
-        <input name="username" placeholder="Username" onChange={onInputChange} value={username} />
-        <p className="error">{usernameError}</p>
-        <input name="password" placeholder="Password" onChange={onInputChange} value={password} type="password" />
-        <p className="error">{passwordError}</p>
-        <input type="submit" value="Submit" />
-      </form>
-      <div id="gs2"></div>
-      <button onClick={onGetUsers}>Get Users</button>
-      {users.map((item) => {
-        return <p>{item}</p>
-      })}
-    </div>
+    <Router>
+      <div className="app">
+        <header>
+          <nav>
+            <NavLink activeClassName="active" to="/home">Home</NavLink>
+            <NavLink activeClassName="active" to="/sign-up">Sign Up</NavLink>
+            <NavLink activeClassName="active" to="/users">Users</NavLink>
+          </nav>
+        </header>
+        <Switch>
+          <Route path="/sign-up">
+            <SignUp />
+          </Route>
+          <Route path="/users">
+            <Users />
+          </Route>
+          <Route path="/">
+            <Home />
+          </Route>
+        </Switch>
+      </div>
+    </Router>
   );
 }
 
