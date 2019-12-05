@@ -10,6 +10,7 @@ import SignUp from './pages/SignUp';
 import Users from './pages/Users';
 import Home from './pages/Home';
 
+import 'normalize.css';
 import './App.css';
 
 function App() {

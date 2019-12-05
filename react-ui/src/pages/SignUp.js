@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import './SignUp.css';
 
 function SignUp() {
     const [email, setEmail] = useState("");
     const [username, setUsername] = useState("");
-    const [usernameTimer, setUsernameTimer] = useState("");
     const [password, setPassword] = useState("");
+
+    const [usernameTimer, setUsernameTimer] = useState("");
 
     const [emailError, setEmailError] = useState("");
     const [usernameError, setUsernameError] = useState("");
@@ -62,7 +64,6 @@ function SignUp() {
 
 
     useEffect(() => {
-
         const onGoogleSignIn = async (googleUser) => {
             let data = {
                 id_token: googleUser.getAuthResponse().id_token
@@ -125,10 +126,12 @@ function SignUp() {
         }
         clearTimeout(usernameTimer);
         setUsernameTimer(setTimeout(onUsernameInputChange, 500));
-    }, [username, usernameTimer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [username]);
 
     return (
-        <main>
+        <main id="sign-up">
+            <h1>Sign Up</h1>
             <p className="error">{generalError}</p>
             <form onSubmit={onSubmit}>
                 <input name="email" placeholder="Email" onChange={onInputChange} value={email} />
@@ -141,7 +144,6 @@ function SignUp() {
             </form>
             <div id="gs2"></div>
         </main>
-
     )
 }
 
