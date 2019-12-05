@@ -1,0 +1,19 @@
+#users p {
+    font-size: 1.4rem;
+    padding: 10px;
+    /* background-color: #888; */
+    /* margin-bottom: 4px; */
+    /* border-bottom: 4px solid black; */
+}
+#users span {
+    display: block;
+    transition: transform 200ms;
+}
+
+#users p:hover {
+    background-color: rgb(223, 108, 108);
+}
+
+#users p:hover span {
+    transform: translateX(20px);
+}

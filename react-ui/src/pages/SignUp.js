@@ -138,7 +138,6 @@ function SignUp() {
             {!authenticated &&
             <div id="sign-up-content">
                 <h1>Sign Up</h1>
-                <p className="error">{generalError}</p>
                 <form onSubmit={onSubmit}>
                     <input name="email" placeholder="Email" onChange={onInputChange} value={email} />
                     <p className="error">{emailError}</p>
@@ -147,6 +146,7 @@ function SignUp() {
                     <input name="password" placeholder="Password" onChange={onInputChange} value={password} type="password" />
                     <p className="error">{passwordError}</p>
                     <input type="submit" value="Submit" />
+                    <p className="error">{generalError}</p>
                 </form>
                 <div id="gs2"></div>
             </div>}

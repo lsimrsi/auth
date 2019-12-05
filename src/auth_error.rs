@@ -17,7 +17,6 @@ impl AuthError {
     pub fn new(context: &str, client_message: &str, server_message: &str, status: u16) -> AuthError {
         let error: &str;
 
-        // if server message is empty, just make it the same as client message
         if server_message == "" {
             error = client_message;
         } else {
