@@ -11,6 +11,12 @@ use r2d2_postgres::PostgresConnectionManager;
 use serde;
 use serde_json::{self, json};
 use std::env;
+use jsonwebtoken as jwt;
+use jwt::{encode, decode, Header, Algorithm, Validation};
+use chrono::{Duration, Utc};
+
+static JWT_SECRET: &'static str = "wegotasecretoverhere";
+static AUTH_APP: &'static str = "Auth App";
 
 #[derive(Serialize, Deserialize)]
 struct GoogleToken {
@@ -23,6 +29,26 @@ struct User {
     email: String,
     username: String,
     password: String,
+}
+
+/// Our claims struct, it needs to derive `Serialize` and/or `Deserialize`
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims {
+    sub: String, // subject
+    iss: String, // issuer
+    exp: usize, // expiration (time)
+    nbf: usize, // not before (time)
+}
+
+impl Claims {
+    fn new(username: String) -> Claims {
+        Claims {
+            sub: username,
+            iss: AUTH_APP.to_owned(),
+            nbf: Utc::now().timestamp() as usize,
+            exp: (Utc::now() + Duration::weeks(2)).timestamp() as usize,
+        }
+    }
 }
 
 fn make_success_json<T>(context: &str, data: T) -> serde_json::value::Value
@@ -139,7 +165,7 @@ fn add_user(
             "INSERT INTO users (email, username, password) VALUES ($1, $2, $3)",
             &[&user.email, &user.username, &user.password],
         ) {
-            Ok(_) => Ok(()),
+            Ok(_) => Ok(user.username.clone()),
             Err(err) => {
                 if let Some(dberr) = err.as_db() {
                     println!("some dberr");
@@ -149,7 +175,6 @@ fn add_user(
                         return Err(AuthError::internal_error(&err.to_string()));
                     }
                     if let Some(constraint) = &dberr.constraint {
-                        println!("constraint: {}", constraint);
                         match constraint.as_ref() {
                             "users_email_key" => {
                                 return Err(AuthError::new(
@@ -179,10 +204,19 @@ fn add_user(
         println!("add_user: {}", err);
         actix_web::Error::from(AuthError::from(err))
     })
-    .and_then(|_| {
+    .and_then(|username| {
+        let claims = Claims::new(username);
+
+        let token = match encode(&Header::default(), &claims, JWT_SECRET.as_bytes()) {
+            Ok(token) => token,
+            Err(err) => {
+                let error = AuthError::internal_error(&err.to_string());
+                return HttpResponse::from_error(actix_web::Error::from(error));
+            }
+        };
         HttpResponse::Ok()
             .content_type("application/json")
-            .body(make_success_json("signup", "Registered!"))
+            .body(make_success_json("signup", token))
     })
 }
 
