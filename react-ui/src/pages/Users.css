@@ -1,6 +1,7 @@
 #users p {
     font-size: 1.4rem;
     padding: 10px;
+    border-radius: 40px;
     /* background-color: #888; */
     /* margin-bottom: 4px; */
     /* border-bottom: 4px solid black; */
@@ -15,5 +16,6 @@
 }
 
 #users p:hover span {
+    color: #fff;
     transform: translateX(20px);
 }

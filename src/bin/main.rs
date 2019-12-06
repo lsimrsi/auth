@@ -1,136 +1,14 @@
-#[macro_use]
-extern crate serde_derive;
-
 use actix_files as fs;
 use actix_web::{guard, http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
-use argon2::{self, Config};
+use auth_app::auth::{self, Auth};
 use auth_app::auth_error::*;
 use auth_app::auth_google;
-use chrono::{Duration, Utc};
 use futures::Future;
-use jsonwebtoken as jwt;
-use jwt::{decode, encode, Header, Validation};
 use r2d2_postgres::r2d2;
 use r2d2_postgres::PostgresConnectionManager;
 use serde;
 use serde_json::{self, json};
 use std::env;
-
-static AUTH_APP: &'static str = "Auth App";
-
-#[derive(Serialize, Deserialize)]
-struct GoogleToken {
-    id_token: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct User {
-    id: Option<i32>,
-    email: String,
-    username: String,
-    password: String,
-}
-
-impl User {
-    fn is_valid_email(&self, context: &str) -> Result<(), AuthError> {
-        if self.email == "" {
-            return Err(AuthError::new(
-                &format!("{}{}", context, "Email"),
-                "Please enter your email.",
-                "",
-                400,
-            ));
-        }
-        Ok(())
-    }
-
-    fn is_valid_username(&self) -> Result<(), AuthError> {
-        if self.username == "" {
-            return Err(AuthError::new(
-                "username",
-                "Please enter a username.",
-                "",
-                400,
-            ));
-        }
-        Ok(())
-    }
-
-    fn is_valid_password(&self, context: &str) -> Result<(), AuthError> {
-        if self.password == "" {
-            return Err(AuthError::new(
-                &format!("{}{}", context, "Password"),
-                "Please enter a password.",
-                "",
-                400,
-            ));
-        }
-        Ok(())
-    }
-
-    fn is_valid_signup(&self) -> Result<(), AuthError> {
-        self.is_valid_email("signup")?;
-        self.is_valid_username()?;
-        self.is_valid_password("signup")
-    }
-
-    fn is_valid_signin(&self) -> Result<(), AuthError> {
-        self.is_valid_email("signin")?;
-        self.is_valid_password("signin")
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Claims {
-    sub: String, // subject
-    iss: String, // issuer
-    exp: usize,  // expiration (time)
-    nbf: usize,  // not before (time)
-}
-
-impl Claims {
-    fn new(username: String) -> Claims {
-        Claims {
-            sub: username,
-            iss: AUTH_APP.to_owned(),
-            nbf: Utc::now().timestamp() as usize,
-            exp: (Utc::now() + Duration::weeks(2)).timestamp() as usize,
-        }
-    }
-}
-
-#[derive(Clone)]
-struct Auth {
-    jwt_secret: String,
-    salt: String,
-}
-
-impl Auth {
-    fn new(jwt_secret: String, salt: String) -> Auth {
-        Auth { jwt_secret, salt }
-    }
-
-    fn create_hash(&self, password: &str) -> String {
-        let config = Config::default();
-        argon2::hash_encoded(password.as_bytes(), self.salt.as_bytes(), &config).unwrap()
-    }
-
-    fn verify_hash(hash: String, password: String) -> bool {
-        match argon2::verify_encoded(&hash, password.as_bytes()) {
-            Ok(value) => value,
-            Err(_) => false,
-        }
-    }
-
-    fn create_token(&self, username: String) -> Result<String, AuthError> {
-        let claims = Claims::new(username);
-
-        match encode(&Header::default(), &claims, self.jwt_secret.as_bytes()) {
-            Ok(token) => Ok(token),
-            Err(err) => Err(AuthError::internal_error(&err.to_string())),
-        }
-    }
-}
 
 fn make_success_json<T>(context: &str, data: T) -> serde_json::value::Value
 where
@@ -145,7 +23,7 @@ where
 
 fn check_username(
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
-    user: web::Json<User>,
+    user: web::Json<auth::User>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         let conn = pool.get()?;
@@ -182,7 +60,7 @@ fn check_username(
 fn get_users(
     req: HttpRequest,
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
-    auth: web::Data<Auth>,
+    auth: web::Data<auth::Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     let token_string = if let Some(header) = req.headers().get("Authorization") {
         let mut value = header.to_str().unwrap_or("").to_string();
@@ -193,18 +71,7 @@ fn get_users(
     };
 
     actix_web::web::block(move || {
-        let validation = Validation {
-            iss: Some(AUTH_APP.to_owned()),
-            ..Default::default()
-        };
-        if let Err(err) = decode::<Claims>(&token_string, auth.jwt_secret.as_bytes(), &validation) {
-            return Err(AuthError::new(
-                "auth",
-                "Please log in or sign up to access this resource.",
-                &err.to_string(),
-                401,
-            ));
-        };
+        auth.decode_token(&token_string)?;
 
         let mut users: Vec<String> = Vec::new();
         let conn = pool.get()?;
@@ -233,9 +100,9 @@ fn get_users(
 }
 
 fn verify_user(
-    user: web::Json<User>,
+    user: web::Json<auth::User>,
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
-    auth: web::Data<Auth>,
+    auth: web::Data<auth::Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         user.is_valid_signin()?;
@@ -278,7 +145,7 @@ fn verify_user(
 }
 
 fn add_user(
-    user: web::Json<User>,
+    user: web::Json<auth::User>,
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
@@ -339,7 +206,7 @@ fn add_user(
 }
 
 fn auth_google(
-    token: web::Json<GoogleToken>,
+    token: web::Json<auth::GoogleToken>,
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
     google: web::Data<auth_google::GoogleSignin>,
     auth: web::Data<Auth>,

@@ -1,3 +1,7 @@
+todo:
+add email verification
+add forgot password
+
 curl "http://localhost:5000/auth-db/get-users"
 
 curl -H "Content-Type: application/json" -d "{\"email\":\"c@c.com\",\"username\":\"xyz\",\"pw\":\"xyz\"}" "http://localhost:5000/auth-pg/add-user"
