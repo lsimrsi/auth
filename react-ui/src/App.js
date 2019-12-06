@@ -6,7 +6,6 @@ import {
   NavLink
 } from "react-router-dom";
 
-import SignUp from './pages/SignUp';
 import SignIn from './pages/SignIn';
 import Users from './pages/Users';
 import Home from './pages/Home';
@@ -22,15 +21,11 @@ function App() {
         <header>
           <nav>
             <NavLink activeClassName="active" to="/home">Home</NavLink>
-            <NavLink activeClassName="active" to="/sign-up">Sign Up</NavLink>
             <NavLink activeClassName="active" to="/sign-in">Sign In</NavLink>
             <NavLink activeClassName="active" to="/users">Users</NavLink>
           </nav>
         </header>
         <Switch>
-          <Route path="/sign-up">
-            <SignUp />
-          </Route>
           <Route path="/sign-in">
             <SignIn />
           </Route>

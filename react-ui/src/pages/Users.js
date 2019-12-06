@@ -20,7 +20,7 @@ function Users() {
             if (json && json.type === "success") {
                 setUsers(json.data);
             } else {
-                history.push("/sign-up");
+                history.push("/sign-in");
             }
         }
         getUsers();
