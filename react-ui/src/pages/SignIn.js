@@ -2,21 +2,59 @@ import React, { useState, useEffect } from 'react';
 import './SignIn.css';
 
 function SignIn() {
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [authenticated, setAuthenticated] = useState(false);
+    const [authenticated, authenticatedSet] = useState(false);
 
-    const [emailError, setEmailError] = useState("");
-    const [passwordError, setPasswordError] = useState("");
-    const [generalError, setGeneralError] = useState("");
+    const [signinEmail, signinEmailSet] = useState("");
+    const [signinPassword, signinPasswordSet] = useState("");
 
-    const onSubmit = async e => {
+    const [signinEmailError, signinEmailErrorSet] = useState("");
+    const [signinPasswordError, signinPasswordErrorSet] = useState("");
+
+    const [signupEmail, signupEmailSet] = useState("");
+    const [username, usernameSet] = useState("");
+    const [usernameTimer, setUsernameTimer] = useState("");
+    const [signupPassword, signupPasswordSet] = useState("");
+
+    const [signupEmailError, signupEmailErrorSet] = useState("");
+    const [usernameError, usernameErrorSet] = useState("");
+    const [signupPasswordError, signupPasswordErrorSet] = useState("");
+
+    const [generalError, generalErrorSet] = useState("");
+
+
+    const onSignupSubmit = async e => {
         e.preventDefault();
 
         let data = {
-            email,
+            email: signupEmail,
+            username,
+            password: signupPassword,
+        }
+
+        let res = await fetch(`/auth-db/add-user`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        let json = await res.json();
+
+        checkErrors(json);
+        if (json && json.type === "success") {
+            localStorage.setItem('authapp', json.data);
+            authenticatedSet(true);
+        }
+    }
+
+    const onSigninSubmit = async e => {
+        e.preventDefault();
+
+        let data = {
+            email: signinEmail,
             username: "",
-            password,
+            password: signinPassword,
         }
 
         let res = await fetch(`/auth-db/verify-user`, {
@@ -32,30 +70,40 @@ function SignIn() {
         checkErrors(json);
         if (json && json.type === "success") {
             localStorage.setItem('authapp', json.data);
-            setAuthenticated(true);
+            authenticatedSet(true);
         }
     }
 
     const onInputChange = e => {
         switch (e.target.name) {
-            case "email": setEmail(e.target.value); break;
-            case "password": setPassword(e.target.value); break;
+            case "signinEmail": signinEmailSet(e.target.value); break;
+            case "signinPassword": signinPasswordSet(e.target.value); break;
+
+            case "signupEmail": signupEmailSet(e.target.value); break;
+            case "username": usernameSet(e.target.value); break;
+            case "signupPassword": signupPasswordSet(e.target.value); break;
             default: break;
         }
     }
 
     const checkErrors = (json) => {
-        setEmailError("");
-        setPasswordError("");
-        setGeneralError("");
+        signinEmailErrorSet("");
+        signinPasswordErrorSet("");
+        signupEmailErrorSet("");
+        usernameErrorSet("");
+        signupPasswordErrorSet("");
+        generalErrorSet("");
 
         if (!json) return;
         if (!json.type === "error") return;
 
         switch (json.context) {
-            case "email": setEmailError(json.data); break;
-            case "password": setPasswordError(json.data); break;
-            case "general": setGeneralError(json.data); break;
+            case "signinEmail": signinEmailErrorSet(json.data); break;
+            case "signinPassword": signinPasswordErrorSet(json.data); break;
+            case "signupEmail": signupEmailErrorSet(json.data); break;
+            case "username": usernameErrorSet(json.data); break;
+            case "signupPassword": signupPasswordErrorSet(json.data); break;
+            case "general": generalErrorSet(json.data); break;
             default: break;
         }
     }
@@ -101,26 +149,69 @@ function SignIn() {
         }
     }, []);
 
+    
+    useEffect(() => {
+        const onUsernameInputChange = async () => {
+            let data = {
+                email: "",
+                username,
+                password: "",
+            }
+
+            let res = await fetch(`/auth-db/check-username`, {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            let json = await res.json();
+
+            checkErrors(json);
+        }
+        clearTimeout(usernameTimer);
+        setUsernameTimer(setTimeout(onUsernameInputChange, 500));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [username]);
+
     return (
         <main id="sign-in">
             {!authenticated &&
-            <div id="sign-in-content">
-                <h1>Sign In</h1>
-                <form onSubmit={onSubmit}>
-                    <input name="email" placeholder="Email" onChange={onInputChange} value={email} />
-                    <p className="error">{emailError}</p>
-                    <input name="password" placeholder="Password" onChange={onInputChange} value={password} type="password" />
-                    <p className="error">{passwordError}</p>
-                    <input type="submit" value="Submit" />
-                    <p className="error">{generalError}</p>
-                </form>
-                <div id="gs2"></div>
-            </div>}
+            <>
+                <div id="sign-in-content">
+                    <h1>Sign In</h1>
+                    <form onSubmit={onSigninSubmit}>
+                        <input name="signinEmail" placeholder="Email" onChange={onInputChange} value={signinEmail} />
+                        <p className="error">{signinEmailError}</p>
+                        <input name="signinPassword" placeholder="Password" onChange={onInputChange} value={signinPassword} type="signinPassword" />
+                        <p className="error">{signinPasswordError}</p>
+                        <input type="submit" value="Submit" />
+                        <p className="error">{generalError}</p>
+                    </form>
+                    <div id="gs2"></div>
+                </div>
+
+                <div id="sign-up-content">
+                    <h1>Sign Up</h1>
+                    <form onSubmit={onSignupSubmit}>
+                        <input name="signupEmail" placeholder="Email" onChange={onInputChange} value={signupEmail} />
+                        <p className="error">{signupEmailError}</p>
+                        <input name="username" placeholder="Username" onChange={onInputChange} value={username} />
+                        <p className="error">{usernameError}</p>
+                        <input name="signupPassword" placeholder="Password" onChange={onInputChange} value={signupPassword} type="password" />
+                        <p className="error">{signupPasswordError}</p>
+                        <input type="submit" value="Submit" />
+                        <p className="error">{generalError}</p>
+                    </form>
+                    <div id="gs2"></div>
+                </div>
+            </>}
 
             {authenticated &&
-            <div id="success-content">
-                <h1>Success!</h1>
-            </div>}
+                <div id="success-content">
+                    <h1>Success!</h1>
+                </div>}
         </main>
     )
 }

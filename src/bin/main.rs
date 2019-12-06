@@ -32,9 +32,9 @@ struct User {
 }
 
 impl User {
-    fn is_valid_email(&self) -> Result<(), AuthError> {
+    fn is_valid_email(&self, context: &str) -> Result<(), AuthError> {
         if self.email == "" {
-            return Err(AuthError::new("email", "Please enter your email.", "", 400));
+            return Err(AuthError::new(&format!("{}{}", context, "Email"), "Please enter your email.", "", 400));
         }
         Ok(())
     }
@@ -51,10 +51,10 @@ impl User {
         Ok(())
     }
 
-    fn is_valid_password(&self) -> Result<(), AuthError> {
+    fn is_valid_password(&self, context: &str) -> Result<(), AuthError> {
         if self.password == "" {
             return Err(AuthError::new(
-                "password",
+                &format!("{}{}", context, "Password"),
                 "Please enter a password.",
                 "",
                 400,
@@ -64,14 +64,14 @@ impl User {
     }
 
     fn is_valid_signup(&self) -> Result<(), AuthError> {
-        self.is_valid_email()?;
+        self.is_valid_email("signup")?;
         self.is_valid_username()?;
-        self.is_valid_password()
+        self.is_valid_password("signup")
     }
 
     fn is_valid_signin(&self) -> Result<(), AuthError> {
-        self.is_valid_email()?;
-        self.is_valid_password()
+        self.is_valid_email("signin")?;
+        self.is_valid_password("signin")
     }
 }
 
@@ -286,7 +286,7 @@ fn add_user(
                         match constraint.as_ref() {
                             "users_email_key" => {
                                 return Err(AuthError::new(
-                                    "email",
+                                    "signupEmail",
                                     "This email has already been registered.",
                                     "",
                                     500,
@@ -355,7 +355,7 @@ fn auth_google(
             // new user
             auth.create_token(token_data.given_name)
         } else {
-            // returning user
+            // returning user, maybe they changed username (todo)
             auth.create_token(username)
         }
     })
@@ -363,10 +363,10 @@ fn auth_google(
         println!("auth_google: {}", err);
         actix_web::Error::from(AuthError::from(err))
     })
-    .and_then(|res| {
+    .and_then(|token| {
         HttpResponse::Ok()
             .content_type("application/json")
-            .body(make_success_json("google", res))
+            .body(make_success_json("google", token))
     })
 }
 
