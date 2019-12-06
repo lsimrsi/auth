@@ -31,7 +31,50 @@ struct User {
     password: String,
 }
 
-/// Our claims struct, it needs to derive `Serialize` and/or `Deserialize`
+impl User {
+    fn is_valid_email(&self) -> Result<(), AuthError> {
+        if self.email == "" {
+            return Err(AuthError::new("email", "Please enter your email.", "", 400));
+        }
+        Ok(())
+    }
+
+    fn is_valid_username(&self) -> Result<(), AuthError> {
+        if self.username == "" {
+            return Err(AuthError::new(
+                "username",
+                "Please enter a username.",
+                "",
+                400,
+            ));
+        }
+        Ok(())
+    }
+
+    fn is_valid_password(&self) -> Result<(), AuthError> {
+        if self.password == "" {
+            return Err(AuthError::new(
+                "password",
+                "Please enter a password.",
+                "",
+                400,
+            ));
+        }
+        Ok(())
+    }
+
+    fn is_valid_signup(&self) -> Result<(), AuthError> {
+        self.is_valid_email()?;
+        self.is_valid_username()?;
+        self.is_valid_password()
+    }
+
+    fn is_valid_signin(&self) -> Result<(), AuthError> {
+        self.is_valid_email()?;
+        self.is_valid_password()
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
     sub: String, // subject
@@ -51,6 +94,40 @@ impl Claims {
     }
 }
 
+
+#[derive(Clone)]
+struct Auth {
+    jwt_secret: String,
+    salt: String,
+}
+
+impl Auth {
+    fn new(jwt_secret: String, salt: String) -> Auth {
+        Auth {
+            jwt_secret,
+            salt,
+        }
+    }
+
+    fn create_hash(&self, password: &str) -> String {
+        let config = Config::default();
+        argon2::hash_encoded(password.as_bytes(), self.salt.as_bytes(), &config).unwrap()
+    }
+
+    fn verify_hash(hash: String, password: String) -> bool {
+        argon2::verify_encoded(&hash, password.as_bytes()).unwrap()
+    }
+
+    fn create_token(&self, username: String) -> Result<String, AuthError> {
+        let claims = Claims::new(username);
+
+        match encode(&Header::default(), &claims, self.jwt_secret.as_bytes()) {
+            Ok(token) => Ok(token),
+            Err(err) => Err(AuthError::internal_error(&err.to_string())),
+        }
+    }
+}
+
 fn make_success_json<T>(context: &str, data: T) -> serde_json::value::Value
 where
     T: Into<serde_json::value::Value> + serde::Serialize,
@@ -60,31 +137,6 @@ where
         "context": context,
         "data": data
     })
-}
-
-impl User {
-    fn is_valid(&self) -> Result<(), AuthError> {
-        if self.email == "" {
-            return Err(AuthError::new("email", "Please enter your email.", "", 400));
-        }
-        if self.username == "" {
-            return Err(AuthError::new(
-                "username",
-                "Please enter a username.",
-                "",
-                400,
-            ));
-        }
-        if self.password == "" {
-            return Err(AuthError::new(
-                "password",
-                "Please enter a password.",
-                "",
-                400,
-            ));
-        }
-        Ok(())
-    }
 }
 
 fn check_username(
@@ -166,14 +218,53 @@ fn get_users(
     })
 }
 
-fn add_user(
-    _req: HttpRequest,
+fn verify_user(
     user: web::Json<User>,
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
-        user.is_valid()?;
+        user.is_valid_signin()?;
+
+        let conn = pool.get()?;
+
+        let rows = match conn.query(
+            "SELECT email, username, password FROM users WHERE email=$1",
+            &[&user.email],
+        ) {
+            Ok(r) => r,
+            Err(err) => return Err(AuthError::internal_error(&err.to_string()))
+        };
+
+        let mut hashed_password = "".to_owned();
+        for row in &rows {
+            hashed_password = row.get(2);
+            break;
+        }
+        if Auth::verify_hash(hashed_password, user.password.clone()) {
+            auth.create_token(user.username.clone())
+        } else {
+            return Err(AuthError::new("general", "Email and password combo not found.", "Token hash wasn't verified.", 400))
+        }
+    })
+    .map_err(|err| {
+        println!("verify_user: {}", err);
+        actix_web::Error::from(AuthError::from(err))
+    })
+    .and_then(|token| {
+        HttpResponse::Ok()
+            .content_type("application/json")
+            .body(make_success_json("signin", token))
+    })
+}
+
+fn add_user(
+    user: web::Json<User>,
+    pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    auth: web::Data<Auth>,
+) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
+    actix_web::web::block(move || {
+        user.is_valid_signup()?;
 
         let conn = pool.get()?;
 
@@ -182,14 +273,7 @@ fn add_user(
             "INSERT INTO users (email, username, password) VALUES ($1, $2, $3)",
             &[&user.email, &user.username, &hashed_password],
         ) {
-            Ok(_) => {
-                let claims = Claims::new(user.username.clone());
-
-                match encode(&Header::default(), &claims, auth.jwt_secret.as_bytes()) {
-                    Ok(token) => Ok(token),
-                    Err(err) => Err(AuthError::internal_error(&err.to_string())),
-                }
-            }
+            Ok(_) => auth.create_token(user.username.clone()),
             Err(err) => {
                 if let Some(dberr) = err.as_db() {
                     println!("some dberr");
@@ -240,6 +324,7 @@ fn auth_google(
     token: web::Json<GoogleToken>,
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
     google: web::Data<auth_google::GoogleSignin>,
+    auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         let token_data = match google.decode_token(&token.id_token) {
@@ -249,28 +334,29 @@ fn auth_google(
 
         let conn = pool.get()?;
 
-        let mut id = 0;
-        let rows = match conn.query("SELECT id FROM users WHERE email=$1", &[&token_data.email]) {
+        let mut username = "".to_owned();
+        let rows = match conn.query("SELECT username FROM users WHERE email=$1", &[&token_data.email]) {
             Ok(r) => r,
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         };
 
         for row in &rows {
-            id = row.get(0);
+            username = row.get(0);
             break;
         }
 
-        // todo: send token
-        if id == 0 {
+        if username == "" {
             if let Err(err) = conn.execute(
                 "INSERT INTO users (email, username, password) VALUES ($1, $2, $3)",
                 &[&token_data.email, &token_data.given_name, &""],
             ) {
                 return Err(AuthError::internal_error(&err.to_string()));
             }
-            Ok("Registered!")
+            // new user
+            auth.create_token(token_data.given_name)
         } else {
-            Ok("Authenticated!")
+            // returning user
+            auth.create_token(username)
         }
     })
     .map_err(|err| {
@@ -282,30 +368,6 @@ fn auth_google(
             .content_type("application/json")
             .body(make_success_json("google", res))
     })
-}
-
-#[derive(Clone)]
-struct Auth {
-    jwt_secret: String,
-    salt: String,
-}
-
-impl Auth {
-    fn new(jwt_secret: String, salt: String) -> Auth {
-        Auth {
-            jwt_secret,
-            salt,
-        }
-    }
-
-    fn create_hash(&self, password: &str) -> String {
-        let config = Config::default();
-        argon2::hash_encoded(password.as_bytes(), self.salt.as_bytes(), &config).unwrap()
-    }
-
-    fn verify_hash(hash: String, password: String) -> bool {
-        argon2::verify_encoded(&hash, password.as_bytes()).unwrap()
-    }
 }
 
 fn main() {
@@ -333,6 +395,7 @@ fn main() {
                     // .default_service(web::get().to_async(unsplash_get))
                     .route("/get-users", web::get().to_async(get_users))
                     .route("/add-user", web::post().to_async(add_user))
+                    .route("/verify-user", web::post().to_async(verify_user))
                     .route("/check-username", web::post().to_async(check_username)),
             )
             .service(web::scope("/auth").route("/google", web::post().to_async(auth_google)))
