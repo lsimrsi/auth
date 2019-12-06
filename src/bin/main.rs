@@ -94,7 +94,6 @@ impl Claims {
     }
 }
 
-
 #[derive(Clone)]
 struct Auth {
     jwt_secret: String,
@@ -115,7 +114,10 @@ impl Auth {
     }
 
     fn verify_hash(hash: String, password: String) -> bool {
-        argon2::verify_encoded(&hash, password.as_bytes()).unwrap()
+        match argon2::verify_encoded(&hash, password.as_bytes()) {
+            Ok(value) => value,
+            Err(_) => false
+        }
     }
 
     fn create_token(&self, username: String) -> Result<String, AuthError> {
@@ -320,7 +322,6 @@ fn add_user(
 }
 
 fn auth_google(
-    _req: HttpRequest,
     token: web::Json<GoogleToken>,
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
     google: web::Data<auth_google::GoogleSignin>,
