@@ -3,8 +3,8 @@ extern crate serde_derive;
 
 use actix_files as fs;
 use actix_web::{guard, http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
-use auth::auth_error::*;
-use auth::auth_google;
+use auth_app::auth_error::*;
+use auth_app::auth_google;
 use futures::Future;
 use r2d2_postgres::r2d2;
 use r2d2_postgres::PostgresConnectionManager;
@@ -14,8 +14,8 @@ use std::env;
 use jsonwebtoken as jwt;
 use jwt::{encode, decode, Header, Validation};
 use chrono::{Duration, Utc};
+use argon2::{self, Config};
 
-static JWT_SECRET: &'static str = "wegotasecretoverhere";
 static AUTH_APP: &'static str = "Auth App";
 
 #[derive(Serialize, Deserialize)]
@@ -123,6 +123,7 @@ fn check_username(
 fn get_users(
     req: HttpRequest,
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
 
     let token_string = if let Some(header) = req.headers().get("Authorization") {
@@ -135,7 +136,7 @@ fn get_users(
 
     actix_web::web::block(move || {
         let validation = Validation {iss: Some(AUTH_APP.to_owned()), ..Default::default()};
-        if let Err(err) = decode::<Claims>(&token_string, JWT_SECRET.as_ref(), &validation) {
+        if let Err(err) = decode::<Claims>(&token_string, auth.jwt_secret.as_bytes(), &validation) {
             return Err(AuthError::new("auth", "Please log in or sign up to access this resource.", &err.to_string(), 401));
         };
 
@@ -169,17 +170,26 @@ fn add_user(
     _req: HttpRequest,
     user: web::Json<User>,
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         user.is_valid()?;
 
         let conn = pool.get()?;
 
+        let hashed_password = auth.create_hash(&user.password.clone());
         match conn.execute(
             "INSERT INTO users (email, username, password) VALUES ($1, $2, $3)",
-            &[&user.email, &user.username, &user.password],
+            &[&user.email, &user.username, &hashed_password],
         ) {
-            Ok(_) => Ok(user.username.clone()),
+            Ok(_) => {
+                let claims = Claims::new(user.username.clone());
+
+                match encode(&Header::default(), &claims, auth.jwt_secret.as_bytes()) {
+                    Ok(token) => Ok(token),
+                    Err(err) => Err(AuthError::internal_error(&err.to_string())),
+                }
+            }
             Err(err) => {
                 if let Some(dberr) = err.as_db() {
                     println!("some dberr");
@@ -218,16 +228,7 @@ fn add_user(
         println!("add_user: {}", err);
         actix_web::Error::from(AuthError::from(err))
     })
-    .and_then(|username| {
-        let claims = Claims::new(username);
-
-        let token = match encode(&Header::default(), &claims, JWT_SECRET.as_bytes()) {
-            Ok(token) => token,
-            Err(err) => {
-                let error = AuthError::internal_error(&err.to_string());
-                return HttpResponse::from_error(actix_web::Error::from(error));
-            }
-        };
+    .and_then(|token| {
         HttpResponse::Ok()
             .content_type("application/json")
             .body(make_success_json("signup", token))
@@ -283,20 +284,49 @@ fn auth_google(
     })
 }
 
-fn main() {
-    let database_url = env::var("TSDB_URL").expect("the database url must be set");
-    let google_client_secret =
-        env::var("GOOGLE_CLIENT_SECRET").expect("google client secret env variable not present");
+#[derive(Clone)]
+struct Auth {
+    jwt_secret: String,
+    salt: String,
+}
 
+impl Auth {
+    fn new(jwt_secret: String, salt: String) -> Auth {
+        Auth {
+            jwt_secret,
+            salt,
+        }
+    }
+
+    fn create_hash(&self, password: &str) -> String {
+        let config = Config::default();
+        argon2::hash_encoded(password.as_bytes(), self.salt.as_bytes(), &config).unwrap()
+    }
+
+    fn verify_hash(hash: String, password: String) -> bool {
+        argon2::verify_encoded(&hash, password.as_bytes()).unwrap()
+    }
+}
+
+fn main() {
+    let jwt_secret = env::var("AUTH_JWT_SECRET").expect("auth jwt secret not found");
+    let salt = env::var("AUTH_SALT").expect("auth salt not found");
+    let database_url = env::var("TSDB_URL").expect("tsdb url not found");
+    let google_client_secret =
+        env::var("GOOGLE_CLIENT_SECRET").expect("google client secret not found");
+
+    let auth = Auth::new(jwt_secret, salt);
+    
     let manager =
         PostgresConnectionManager::new(database_url, r2d2_postgres::TlsMode::None).unwrap();
-    let pool = r2d2::Pool::builder().max_size(4).build(manager).unwrap();
+    let pool = r2d2::Pool::builder().max_size(3).build(manager).unwrap();
     let google = auth_google::GoogleSignin::new(&google_client_secret);
 
     HttpServer::new(move || {
         App::new()
             .data(pool.clone())
             .data(google.clone())
+            .data(auth.clone())
             .wrap(middleware::Logger::default())
             .service(
                 web::scope("/auth-db")

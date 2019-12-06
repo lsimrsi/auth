@@ -1,5 +1,5 @@
 [package]
-name = "auth"
+name = "auth-app"
 version = "0.1.0"
 authors = ["luke simpson <luke.simpson@ruralsourcing.com>"]
 edition = "2018"
@@ -18,3 +18,4 @@ failure = "0.1.6"
 jsonwebtoken = {version = "7.0.0-alpha.2"}
 reqwest = "0.9.22"
 chrono = "0.4.10"
+rust-argon2 = "0.6.0"
