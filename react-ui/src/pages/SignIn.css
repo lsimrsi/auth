@@ -1,16 +1,38 @@
-form {
+#auth {
+    display: grid;
+    grid-gap: 20px;
+    grid-template-columns: 2fr 1fr 2fr;
+    grid-template-rows: 5fr 5rem;
+    grid-template-areas:
+        "signin . signup"
+        "social social social";
+}
+
+#auth #signin {
+    grid-area: signin;
+}
+
+#auth #signup {
+    grid-area: signup;
+}
+
+#auth #social {
+    grid-area: social;
+}
+
+#auth form {
     width: 100%;
     margin-bottom: 30px;
 }
 
-form input {
+#auth form input {
     padding: 14px;
     font-size: 1.5rem;
     box-sizing: border-box;
     width: 100%;
 }
 
-form p {
+#auth form p {
     color: rgb(200, 70, 70);
     font-size: 1.2rem;
     font-weight: 600;

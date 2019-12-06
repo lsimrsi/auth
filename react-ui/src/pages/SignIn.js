@@ -176,10 +176,9 @@ function SignIn() {
     }, [username]);
 
     return (
-        <main id="sign-in">
+        <main id="auth">
             {!authenticated &&
-            <>
-                <div id="sign-in-content">
+                <section id="signin">
                     <h1>Sign In</h1>
                     <form onSubmit={onSigninSubmit}>
                         <input name="signinEmail" placeholder="Email" onChange={onInputChange} value={signinEmail} />
@@ -190,9 +189,10 @@ function SignIn() {
                         <p className="error">{generalError}</p>
                     </form>
                     <div id="gs2"></div>
-                </div>
+                </section>}
 
-                <div id="sign-up-content">
+                {!authenticated &&
+                <section id="signup">
                     <h1>Sign Up</h1>
                     <form onSubmit={onSignupSubmit}>
                         <input name="signupEmail" placeholder="Email" onChange={onInputChange} value={signupEmail} />
@@ -205,8 +205,7 @@ function SignIn() {
                         <p className="error">{generalError}</p>
                     </form>
                     <div id="gs2"></div>
-                </div>
-            </>}
+                </section>}
 
             {authenticated &&
                 <div id="success-content">
