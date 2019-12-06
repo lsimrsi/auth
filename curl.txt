@@ -1,6 +1,7 @@
 todo:
 add email verification
 add forgot password
+welcome back <name>
 
 curl "http://localhost:5000/auth-db/get-users"
 
