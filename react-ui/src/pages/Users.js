@@ -29,8 +29,8 @@ function Users() {
     return (
         <main id="users">
             <h1>Users</h1>
-            {users.map((item) => {
-                return <p><span>{item}</span></p>
+            {users.map((item, i) => {
+                return <p key={`${i}`}><span>{item}</span></p>
             })}
         </main>
     )

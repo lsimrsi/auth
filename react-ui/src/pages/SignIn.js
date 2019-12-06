@@ -125,6 +125,11 @@ function SignIn() {
             let json = await res.json();
 
             checkErrors(json);
+
+            if (json && json.type === "success") {
+                localStorage.setItem('authapp', json.data);
+                authenticatedSet(true);
+            }
         }
 
         const onGoogleSignInFailed = (e) => {
