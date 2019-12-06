@@ -1,9 +1,9 @@
-use std::fmt::{self, Formatter, Result as FmtResult};
-use actix_web::{HttpResponse, ResponseError};
-use actix_web::http::StatusCode;
 use actix_web::error::BlockingError;
-use serde_json::{json, to_string_pretty};
+use actix_web::http::StatusCode;
+use actix_web::{HttpResponse, ResponseError};
 use r2d2_postgres::r2d2;
+use serde_json::{json, to_string_pretty};
+use std::fmt::{self, Formatter, Result as FmtResult};
 
 #[derive(Debug, Serialize)]
 pub struct AuthError {
@@ -14,7 +14,12 @@ pub struct AuthError {
 }
 
 impl AuthError {
-    pub fn new(context: &str, client_message: &str, server_message: &str, status: u16) -> AuthError {
+    pub fn new(
+        context: &str,
+        client_message: &str,
+        server_message: &str,
+        status: u16,
+    ) -> AuthError {
         let error: &str;
 
         if server_message == "" {
@@ -27,7 +32,7 @@ impl AuthError {
             context: context.to_owned(),
             client_message: client_message.to_owned(),
             server_message: error.to_owned(),
-            status
+            status,
         }
     }
 
@@ -40,7 +45,7 @@ impl AuthError {
             context: "general".to_owned(),
             client_message: "Something went wrong. Please try again later.".to_owned(),
             server_message: error.to_owned(),
-            status: 500
+            status: 500,
         }
     }
 }
@@ -78,5 +83,7 @@ impl ResponseError for AuthError {
 }
 
 impl std::error::Error for AuthError {
-    fn description(&self) -> &str { &self.client_message }
+    fn description(&self) -> &str {
+        &self.client_message
+    }
 }

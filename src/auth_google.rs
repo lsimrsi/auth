@@ -84,7 +84,9 @@ impl GoogleSignin {
         }
 
         if !b_match {
-            return Err(failure::err_msg("google decode_token: kid does not match any google kid".to_string()));
+            return Err(failure::err_msg(
+                "google decode_token: kid does not match any google kid".to_string(),
+            ));
         }
 
         let mut validation = Validation {
@@ -93,7 +95,9 @@ impl GoogleSignin {
             algorithms: vec![Algorithm::RS256],
             ..Validation::default()
         };
-        validation.set_audience(&["709178405751-3gehnuuoka3ccht41qs4uo175vc6vg3f.apps.googleusercontent.com"]);
+        validation.set_audience(&[
+            "709178405751-3gehnuuoka3ccht41qs4uo175vc6vg3f.apps.googleusercontent.com",
+        ]);
 
         let token_data = jwt::decode_rsa_components::<GooglePayload>(&token, &n, &e, &validation)?;
         Ok(token_data.claims)
