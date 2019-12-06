@@ -19,7 +19,7 @@ function SignIn() {
     const [usernameError, usernameErrorSet] = useState("");
     const [signupPasswordError, signupPasswordErrorSet] = useState("");
 
-    const [generalError, generalErrorSet] = useState("");
+    const [signinError, signinErrorSet] = useState("");
 
 
     const onSignupSubmit = async e => {
@@ -92,7 +92,7 @@ function SignIn() {
         signupEmailErrorSet("");
         usernameErrorSet("");
         signupPasswordErrorSet("");
-        generalErrorSet("");
+        signinErrorSet("");
 
         if (!json) return;
         if (!json.type === "error") return;
@@ -103,7 +103,7 @@ function SignIn() {
             case "signupEmail": signupEmailErrorSet(json.data); break;
             case "username": usernameErrorSet(json.data); break;
             case "signupPassword": signupPasswordErrorSet(json.data); break;
-            case "general": generalErrorSet(json.data); break;
+            case "signin": signinErrorSet(json.data); break;
             default: break;
         }
     }
@@ -186,7 +186,7 @@ function SignIn() {
                         <input name="signinPassword" placeholder="Password" onChange={onInputChange} value={signinPassword} type="signinPassword" />
                         <p className="error">{signinPasswordError}</p>
                         <input type="submit" value="Submit" />
-                        <p className="error">{generalError}</p>
+                        <p className="error">{signinError}</p>
                     </form>
                     <div id="gs2"></div>
                 </section>}
@@ -202,7 +202,6 @@ function SignIn() {
                         <input name="signupPassword" placeholder="Password" onChange={onInputChange} value={signupPassword} type="password" />
                         <p className="error">{signupPasswordError}</p>
                         <input type="submit" value="Submit" />
-                        <p className="error">{generalError}</p>
                     </form>
                     <div id="gs2"></div>
                 </section>}

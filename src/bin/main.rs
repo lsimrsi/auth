@@ -259,7 +259,7 @@ fn verify_user(
             auth.create_token(user.username.clone())
         } else {
             return Err(AuthError::new(
-                "general",
+                "signin",
                 "Email and password combo not found.",
                 "Token hash wasn't verified.",
                 400,

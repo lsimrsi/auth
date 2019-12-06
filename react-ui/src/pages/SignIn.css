@@ -32,7 +32,7 @@
     width: 100%;
 }
 
-#auth form p {
+#auth .error {
     color: rgb(200, 70, 70);
     font-size: 1.2rem;
     font-weight: 600;
