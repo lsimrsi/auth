@@ -43,7 +43,7 @@ function App() {
 
   const protectedRoute = e => {
     if (authenticated) return;
-  
+
     e.preventDefault();
     if (location.pathname !== "/sign-in") {
       history.push("/sign-in");
@@ -51,28 +51,28 @@ function App() {
   }
 
   return (
-      <div className="app">
-        <header>
-          <nav>
-            <NavLink activeClassName="active" to="/">Home</NavLink>
-            {authenticated && <span>{username}</span>}
-            {authenticated && <button onClick={signOut}>Sign Out</button>}
-            {!authenticated && <NavLink activeClassName="active" to="/sign-in">Sign In</NavLink>}
-            <NavLink onClick={protectedRoute} activeClassName="active" to="/users">Users</NavLink>
-          </nav>
-        </header>
-        <Switch>
-          <Route exact path="/">
-            <Home />
-          </Route>
-          <Route path="/sign-in">
-            <SignIn authenticated={authenticated} authenticatedSet={authenticatedSet} />
-          </Route>
-          <Route path="/users">
-            <Users />
-          </Route>
-        </Switch>
-      </div>
+    <div className="app">
+      <header>
+        <nav>
+          <NavLink activeClassName="active" to="/">Home</NavLink>
+          {authenticated && <span>{username}</span>}
+          {authenticated && <button onClick={signOut}>Sign Out</button>}
+          {!authenticated && <NavLink activeClassName="active" to="/sign-in">Sign In</NavLink>}
+          <NavLink onClick={protectedRoute} activeClassName="active" to="/users">Users</NavLink>
+        </nav>
+      </header>
+      <Switch>
+        <Route exact path="/">
+          <Home />
+        </Route>
+        <Route path="/sign-in">
+          <SignIn authenticated={authenticated} authenticatedSet={authenticatedSet} />
+        </Route>
+        <Route path="/users">
+          <Users />
+        </Route>
+      </Switch>
+    </div>
   );
 }
 

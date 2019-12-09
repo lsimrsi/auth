@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './SignIn.css';
 
 function SignIn(props) {
-    let {authenticated, authenticatedSet} = props;
+    let { authenticated, authenticatedSet } = props;
 
     const [signinEmail, signinEmailSet] = useState("");
     const [signinPassword, signinPasswordSet] = useState("");
@@ -158,13 +158,12 @@ function SignIn(props) {
         let mounted = true;
 
         const onUsernameInputChange = async () => {
-            
             let data = {
                 email: "",
                 username,
                 password: "",
             }
-            
+
             let res = await fetch(`/auth-db/check-username`, {
                 method: 'POST',
                 body: JSON.stringify(data),
@@ -186,7 +185,7 @@ function SignIn(props) {
             clearTimeout(usernameTimer);
             mounted = false;
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [username, authenticated]);
 
     return (
@@ -205,7 +204,7 @@ function SignIn(props) {
                     <div id="gs2"></div>
                 </section>}
 
-                {!props.authenticated &&
+            {!props.authenticated &&
                 <section id="signup">
                     <h1>Sign Up</h1>
                     <form onSubmit={onSignupSubmit}>
