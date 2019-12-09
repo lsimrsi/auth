@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import jwt from 'jsonwebtoken';
 import {
-  BrowserRouter as Router,
   Switch,
   Route,
-  NavLink
+  NavLink,
+  useHistory,
+  useLocation,
 } from "react-router-dom";
 
 import SignIn from './pages/SignIn';
@@ -17,33 +18,43 @@ import './App.css';
 function App() {
   const [username, usernameSet] = useState("");
   const [authenticated, authenticatedSet] = useState(false);
+  let history = useHistory();
+  let location = useLocation();
 
   useEffect(() => {
     let token = localStorage.getItem("authapp");
+    if (!token) return;
+
     let res = jwt.decode(token);
-    console.log('res', res);
-    console.log('res.exp', res.exp);
-    console.log('Date.now()', Date.now());
     if (res.exp * 1000 > Date.now()) {
       usernameSet(res.sub);
       authenticatedSet(true);
     }
   }, []);
 
+  const signOut = () => {
+    localStorage.removeItem("authapp");
+    authenticatedSet(false);
+    console.log('location.pathname', location.pathname);
+    if (location.pathname === "/users") {
+      history.push("/sign-in");
+    }
+  }
+
   return (
-    <Router>
       <div className="app">
         <header>
-          {`Welcome back ${username}`}!
           <nav>
             <NavLink activeClassName="active" to="/home">Home</NavLink>
-            <NavLink activeClassName="active" to="/sign-in">Sign In</NavLink>
+            {authenticated && <span>{username}</span>}
+            {authenticated && <button onClick={signOut}>Sign Out</button>}
+            {!authenticated && <NavLink activeClassName="active" to="/sign-in">Sign In</NavLink>}
             <NavLink activeClassName="active" to="/users">Users</NavLink>
           </nav>
         </header>
         <Switch>
           <Route path="/sign-in">
-            <SignIn />
+            <SignIn authenticatedSet={authenticatedSet} />
           </Route>
           <Route path="/users">
             <Users />
@@ -53,7 +64,6 @@ function App() {
           </Route>
         </Switch>
       </div>
-    </Router>
   );
 }
 

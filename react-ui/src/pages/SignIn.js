@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './SignIn.css';
 
-function SignIn() {
+function SignIn(props) {
+    let appAuthenticatedSet = props.authenticatedSet;
     const [authenticated, authenticatedSet] = useState(false);
 
     const [signinEmail, signinEmailSet] = useState("");
@@ -45,6 +46,7 @@ function SignIn() {
         if (json && json.type === "success") {
             localStorage.setItem('authapp', json.data);
             authenticatedSet(true);
+            appAuthenticatedSet(true);
         }
     }
 
@@ -71,6 +73,7 @@ function SignIn() {
         if (json && json.type === "success") {
             localStorage.setItem('authapp', json.data);
             authenticatedSet(true);
+            appAuthenticatedSet(true);
         }
     }
 
@@ -129,6 +132,7 @@ function SignIn() {
             if (json && json.type === "success") {
                 localStorage.setItem('authapp', json.data);
                 authenticatedSet(true);
+                appAuthenticatedSet(true);
             }
         }
 
@@ -152,7 +156,7 @@ function SignIn() {
         } else {
             setTimeout(addBtn, 200);
         }
-    }, []);
+    }, [appAuthenticatedSet]);
 
     
     useEffect(() => {

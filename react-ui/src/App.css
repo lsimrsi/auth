@@ -22,6 +22,10 @@ nav a {
   margin: auto;
 }
 
+nav span {
+  margin: auto;
+}
+
 main {
   width: 60%;
   margin: auto;
