@@ -30,7 +30,7 @@ function App() {
       usernameSet(res.sub);
       authenticatedSet(true);
     }
-  }, []);
+  }, [authenticated]);
 
   const signOut = () => {
     localStorage.removeItem("authapp");
@@ -41,26 +41,35 @@ function App() {
     }
   }
 
+  const protectedRoute = e => {
+    if (authenticated) return;
+  
+    e.preventDefault();
+    if (location.pathname !== "/sign-in") {
+      history.push("/sign-in");
+    }
+  }
+
   return (
       <div className="app">
         <header>
           <nav>
-            <NavLink activeClassName="active" to="/home">Home</NavLink>
+            <NavLink activeClassName="active" to="/">Home</NavLink>
             {authenticated && <span>{username}</span>}
             {authenticated && <button onClick={signOut}>Sign Out</button>}
             {!authenticated && <NavLink activeClassName="active" to="/sign-in">Sign In</NavLink>}
-            <NavLink activeClassName="active" to="/users">Users</NavLink>
+            <NavLink onClick={protectedRoute} activeClassName="active" to="/users">Users</NavLink>
           </nav>
         </header>
         <Switch>
+          <Route exact path="/">
+            <Home />
+          </Route>
           <Route path="/sign-in">
-            <SignIn authenticatedSet={authenticatedSet} />
+            <SignIn authenticated={authenticated} authenticatedSet={authenticatedSet} />
           </Route>
           <Route path="/users">
             <Users />
-          </Route>
-          <Route path="/">
-            <Home />
           </Route>
         </Switch>
       </div>

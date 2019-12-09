@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './SignIn.css';
 
 function SignIn(props) {
-    let appAuthenticatedSet = props.authenticatedSet;
-    const [authenticated, authenticatedSet] = useState(false);
+    let {authenticated, authenticatedSet} = props;
 
     const [signinEmail, signinEmailSet] = useState("");
     const [signinPassword, signinPasswordSet] = useState("");
@@ -46,7 +45,6 @@ function SignIn(props) {
         if (json && json.type === "success") {
             localStorage.setItem('authapp', json.data);
             authenticatedSet(true);
-            appAuthenticatedSet(true);
         }
     }
 
@@ -73,7 +71,6 @@ function SignIn(props) {
         if (json && json.type === "success") {
             localStorage.setItem('authapp', json.data);
             authenticatedSet(true);
-            appAuthenticatedSet(true);
         }
     }
 
@@ -132,7 +129,6 @@ function SignIn(props) {
             if (json && json.type === "success") {
                 localStorage.setItem('authapp', json.data);
                 authenticatedSet(true);
-                appAuthenticatedSet(true);
             }
         }
 
@@ -151,22 +147,24 @@ function SignIn(props) {
                 'onfailure': onGoogleSignInFailed
             })
         }
-        if (window.gapi) {
-            addBtn();
-        } else {
-            setTimeout(addBtn, 200);
-        }
-    }, [appAuthenticatedSet]);
 
-    
+        if (window.gapi && !authenticated) {
+            addBtn();
+        }
+
+    }, [authenticated, authenticatedSet]);
+
     useEffect(() => {
+        let mounted = true;
+
         const onUsernameInputChange = async () => {
+            
             let data = {
                 email: "",
                 username,
                 password: "",
             }
-
+            
             let res = await fetch(`/auth-db/check-username`, {
                 method: 'POST',
                 body: JSON.stringify(data),
@@ -177,16 +175,23 @@ function SignIn(props) {
 
             let json = await res.json();
 
+            if (!mounted) return;
             checkErrors(json);
         }
+
         clearTimeout(usernameTimer);
         setUsernameTimer(setTimeout(onUsernameInputChange, 500));
+
+        return () => {
+            clearTimeout(usernameTimer);
+            mounted = false;
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [username]);
+    }, [username, authenticated]);
 
     return (
         <main id="auth">
-            {!authenticated &&
+            {!props.authenticated &&
                 <section id="signin">
                     <h1>Sign In</h1>
                     <form onSubmit={onSigninSubmit}>
@@ -200,7 +205,7 @@ function SignIn(props) {
                     <div id="gs2"></div>
                 </section>}
 
-                {!authenticated &&
+                {!props.authenticated &&
                 <section id="signup">
                     <h1>Sign Up</h1>
                     <form onSubmit={onSignupSubmit}>
@@ -215,7 +220,7 @@ function SignIn(props) {
                     <div id="gs2"></div>
                 </section>}
 
-            {authenticated &&
+            {props.authenticated &&
                 <div id="success-content">
                     <h1>Success!</h1>
                 </div>}
