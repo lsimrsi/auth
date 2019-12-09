@@ -19,23 +19,3 @@
 #auth #social {
     grid-area: social;
 }
-
-#auth form {
-    width: 100%;
-    margin-bottom: 30px;
-}
-
-#auth form input {
-    padding: 14px;
-    font-size: 1.5rem;
-    box-sizing: border-box;
-    width: 100%;
-}
-
-#auth .error {
-    color: rgb(200, 70, 70);
-    font-size: 1.2rem;
-    font-weight: 600;
-    height: 1rem;
-    padding: 6px 0px 30px 0px;
-}

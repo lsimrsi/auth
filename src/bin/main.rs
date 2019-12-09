@@ -258,6 +258,42 @@ fn auth_google(
     })
 }
 
+fn forgot_password(
+    pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    user: web::Json<auth::User>,
+) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
+    actix_web::web::block(move || {
+        user.is_valid_email("forgotPassword")?;
+        let conn = pool.get()?;
+        let rows = match conn.query(
+            "SELECT username FROM users WHERE email=$1",
+            &[&user.email],
+        ) {
+            Ok(r) => r,
+            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
+        };
+
+        if rows.is_empty() {
+            return Err(AuthError::new(
+                "forgotPasswordEmail",
+                "This email is not on record.",
+                "",
+                400,
+            ));
+        }
+        Ok(())
+    })
+    .map_err(|err| {
+        println!("forgot_password: {}", err);
+        actix_web::Error::from(AuthError::from(err))
+    })
+    .and_then(|_| {
+        HttpResponse::Ok()
+            .content_type("application/json")
+            .body(make_success_json("forgotPassword", "Email sent!"))
+    })
+}
+
 fn main() {
     let jwt_secret = env::var("AUTH_JWT_SECRET").expect("auth jwt secret not found");
     let salt = env::var("AUTH_SALT").expect("auth salt not found");
@@ -283,7 +319,8 @@ fn main() {
                     .route("/get-users", web::get().to_async(get_users))
                     .route("/add-user", web::post().to_async(add_user))
                     .route("/verify-user", web::post().to_async(verify_user))
-                    .route("/check-username", web::post().to_async(check_username)),
+                    .route("/check-username", web::post().to_async(check_username))
+                    .route("/forgot-password", web::post().to_async(forgot_password)),
             )
             .service(web::scope("/auth").route("/google", web::post().to_async(auth_google)))
             .service(fs::Files::new("/", "static/build").index_file("index.html"))

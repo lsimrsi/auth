@@ -11,6 +11,7 @@ import {
 import SignIn from './pages/SignIn';
 import Users from './pages/Users';
 import Home from './pages/Home';
+import ForgotPassword from './pages/ForgotPassword';
 
 import 'normalize.css';
 import './App.css';
@@ -35,7 +36,6 @@ function App() {
   const signOut = () => {
     localStorage.removeItem("authapp");
     authenticatedSet(false);
-    console.log('location.pathname', location.pathname);
     if (location.pathname === "/users") {
       history.push("/sign-in");
     }
@@ -55,10 +55,10 @@ function App() {
       <header>
         <nav>
           <NavLink activeClassName="active" to="/">Home</NavLink>
+          <NavLink onClick={protectedRoute} activeClassName="active" to="/users">Users</NavLink>
           {authenticated && <span>{username}</span>}
           {authenticated && <button onClick={signOut}>Sign Out</button>}
           {!authenticated && <NavLink activeClassName="active" to="/sign-in">Sign In</NavLink>}
-          <NavLink onClick={protectedRoute} activeClassName="active" to="/users">Users</NavLink>
         </nav>
       </header>
       <Switch>
@@ -70,6 +70,9 @@ function App() {
         </Route>
         <Route path="/users">
           <Users />
+        </Route>
+        <Route path="/forgot-password">
+          <ForgotPassword />
         </Route>
       </Switch>
     </div>

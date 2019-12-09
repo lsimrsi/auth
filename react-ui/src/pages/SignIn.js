@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import {Link} from 'react-router-dom'
 import './SignIn.css';
 
 function SignIn(props) {
@@ -95,7 +96,7 @@ function SignIn(props) {
         signinErrorSet("");
 
         if (!json) return;
-        if (!json.type === "error") return;
+        if (json.type !== "error") return;
 
         switch (json.context) {
             case "signinEmail": signinEmailErrorSet(json.data); break;
@@ -197,6 +198,7 @@ function SignIn(props) {
                         <input name="signinEmail" placeholder="Email" onChange={onInputChange} value={signinEmail} />
                         <p className="error">{signinEmailError}</p>
                         <input name="signinPassword" placeholder="Password" onChange={onInputChange} value={signinPassword} type="signinPassword" />
+                        <Link to="/forgot-password">Forget password?</Link>
                         <p className="error">{signinPasswordError}</p>
                         <input type="submit" value="Submit" />
                         <p className="error">{signinError}</p>
