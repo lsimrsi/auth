@@ -7,7 +7,6 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct GoogleSignin {
     client: Arc<reqwest::Client>,
-    secret: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -52,10 +51,9 @@ pub struct GooglePayload {
 }
 
 impl GoogleSignin {
-    pub fn new(secret: &str) -> GoogleSignin {
+    pub fn new() -> GoogleSignin {
         GoogleSignin {
             client: Arc::new(reqwest::Client::new()),
-            secret: secret.to_owned(),
         }
     }
 

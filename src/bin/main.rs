@@ -304,14 +304,12 @@ fn main() {
     let salt = env::var("AUTH_SALT").expect("auth salt not found");
     let database_url = env::var("TSDB_URL").expect("tsdb url not found");
     let send_grid_key = env::var("AUTH_SEND_GRID_KEY").expect("send grid key not found");
-    let google_client_secret =
-        env::var("GOOGLE_CLIENT_SECRET").expect("google client secret not found");
 
     let auth = Auth::new(jwt_secret, salt);
     let manager =
         PostgresConnectionManager::new(database_url, r2d2_postgres::TlsMode::None).unwrap();
     let pool = r2d2::Pool::builder().max_size(3).build(manager).unwrap();
-    let google = auth_google::GoogleSignin::new(&google_client_secret);
+    let google = auth_google::GoogleSignin::new();
     let send_grid = send_grid::SendGrid::new(&send_grid_key);
 
     HttpServer::new(move || {
