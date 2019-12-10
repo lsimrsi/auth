@@ -18,7 +18,7 @@ impl SendGrid {
         }
     }
 
-    pub fn send_forgot_email(&self, to: &str) -> Result<String, AuthError> {
+    pub fn send_forgot_email(&self, to: &str) -> Result<(), AuthError> {
         let data = json!({
           "personalizations": [
             {
@@ -57,6 +57,6 @@ impl SendGrid {
             Err(err) => return Err(AuthError::internal_error(&err.to_string()))
         };
 
-        Ok(body)
+        Ok(())
     }
 }

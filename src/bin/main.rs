@@ -264,26 +264,29 @@ fn forgot_password(
     user: web::Json<auth::User>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
-        user.is_valid_email("forgotPassword")?;
+        user.is_valid_username()?;
         let conn = pool.get()?;
         let rows = match conn.query(
-            "SELECT email FROM users WHERE email=$1",
-            &[&user.email],
+            "SELECT email FROM users WHERE username=$1",
+            &[&user.username],
         ) {
             Ok(r) => r,
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         };
 
         if rows.is_empty() {
-            return Err(AuthError::new(
-                "forgotPasswordEmail",
-                "This email is not on record.",
-                "",
-                400,
-            ));
+            // return ok even if user isn't found
+            // security through obscurity
+            return Ok(())
         }
 
-        send_grid.send_forgot_email(&user.email)
+        let mut email = "".to_owned();
+        for row in &rows {
+            email = row.get(0);
+            break;
+        }
+
+        send_grid.send_forgot_email(&email)
     })
     .map_err(|err| {
         println!("forgot_password: {}", err);

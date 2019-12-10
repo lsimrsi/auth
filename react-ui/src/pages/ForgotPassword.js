@@ -2,16 +2,17 @@ import React, { useState, useEffect } from 'react';
 import './SignIn.css';
 
 function SignIn(props) {
-    const [email, emailSet] = useState("");
-    const [emailError, emailErrorSet] = useState("");
+    const [username, usernameSet] = useState("");
+    const [usernameError, usernameErrorSet] = useState("");
     const [emailSent, emailSentSet] = useState(false);
+    const [successMessage, successMessageSet] = useState("Email Sent.");
 
     const onSubmit = async e => {
         e.preventDefault();
 
         let data = {
-            email,
-            username: "",
+            email: "",
+            username,
             password: "",
         };
 
@@ -28,20 +29,21 @@ function SignIn(props) {
         checkErrors(json);
         if (json && json.type === "success") {
             emailSentSet(true);
+            successMessageSet(json.data);
         }
     }
 
     const onInputChange = e => {
-        emailSet(e.target.value)
+        usernameSet(e.target.value)
     }
 
     const checkErrors = (json) => {
-        emailErrorSet("");
+        usernameErrorSet("");
 
         if (!json) return;
         if (json.type !== "error") return;
 
-        emailErrorSet(json.data);
+        usernameErrorSet(json.data);
     }
 
     return (
@@ -49,14 +51,14 @@ function SignIn(props) {
             {!emailSent && <section id="signup">
                 <h1>Forgot Password</h1>
                 <form onSubmit={onSubmit}>
-                    <input name="email" placeholder="Email" onChange={onInputChange} value={email} />
-                    <p className="error">{emailError}</p>
+                    <input name="username" placeholder="Username" onChange={onInputChange} value={username} />
+                    <p className="error">{usernameError}</p>
                     <input type="submit" value="Submit" />
                 </form>
             </section>}
 
             {emailSent && <section id="success-content">
-                <h1>Email Sent!</h1>
+                <h1>{successMessage}</h1>
                 <p>Please check your spam folder.</p>
             </section>}
         </main>
