@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import './SignIn.css';
 
 function SignIn(props) {
-    // let { authenticated, authenticatedSet } = props;
-
     const [email, emailSet] = useState("");
     const [emailError, emailErrorSet] = useState("");
+    const [emailSent, emailSentSet] = useState(false);
 
     const onSubmit = async e => {
         e.preventDefault();
@@ -27,10 +26,9 @@ function SignIn(props) {
         let json = await res.json();
 
         checkErrors(json);
-        // if (json && json.type === "success") {
-        //     localStorage.setItem('authapp', json.data);
-        //     authenticatedSet(true);
-        // }
+        if (json && json.type === "success") {
+            emailSentSet(true);
+        }
     }
 
     const onInputChange = e => {
@@ -48,14 +46,19 @@ function SignIn(props) {
 
     return (
         <main id="forgot-password">
-            <section id="signup">
+            {!emailSent && <section id="signup">
                 <h1>Forgot Password</h1>
                 <form onSubmit={onSubmit}>
                     <input name="email" placeholder="Email" onChange={onInputChange} value={email} />
                     <p className="error">{emailError}</p>
                     <input type="submit" value="Submit" />
                 </form>
-            </section>
+            </section>}
+
+            {emailSent && <section id="success-content">
+                <h1>Email Sent!</h1>
+                <p>Please check your spam folder.</p>
+            </section>}
         </main>
     )
 }

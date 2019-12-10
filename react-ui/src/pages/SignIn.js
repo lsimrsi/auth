@@ -222,9 +222,9 @@ function SignIn(props) {
                 </section>}
 
             {props.authenticated &&
-                <div id="success-content">
+                <section id="success-content">
                     <h1>Success!</h1>
-                </div>}
+                </section>}
         </main>
     )
 }

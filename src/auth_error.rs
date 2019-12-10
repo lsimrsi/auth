@@ -4,6 +4,7 @@ use actix_web::{HttpResponse, ResponseError};
 use r2d2_postgres::r2d2;
 use serde_json::{json, to_string_pretty};
 use std::fmt::{self, Formatter, Result as FmtResult};
+use reqwest;
 
 #[derive(Debug, Serialize)]
 pub struct AuthError {
@@ -64,6 +65,18 @@ impl From<r2d2::Error> for AuthError {
         AuthError::new("general", "Internal Error.", &error.to_string(), 500)
     }
 }
+
+impl From<reqwest::Error> for AuthError {
+    fn from(error: reqwest::Error) -> Self {
+        AuthError::new("general", "Internal Error.", &error.to_string(), 500)
+    }
+}
+
+// impl<T> From<Result<T, reqwest::Error>> for AuthError {
+//     fn from(error: Result<T, reqwest::Error>) -> Result<T, AuthError> {
+
+//     }
+// }
 
 impl fmt::Display for AuthError {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {

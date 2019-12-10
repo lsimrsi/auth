@@ -2,7 +2,7 @@ use actix_files as fs;
 use actix_web::{guard, http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
 use auth_app::auth::{self, Auth};
 use auth_app::auth_error::*;
-use auth_app::auth_google;
+use auth_app::*;
 use futures::Future;
 use r2d2_postgres::r2d2;
 use r2d2_postgres::PostgresConnectionManager;
@@ -260,13 +260,14 @@ fn auth_google(
 
 fn forgot_password(
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    send_grid: web::Data<send_grid::SendGrid>,
     user: web::Json<auth::User>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         user.is_valid_email("forgotPassword")?;
         let conn = pool.get()?;
         let rows = match conn.query(
-            "SELECT username FROM users WHERE email=$1",
+            "SELECT email FROM users WHERE email=$1",
             &[&user.email],
         ) {
             Ok(r) => r,
@@ -281,7 +282,8 @@ fn forgot_password(
                 400,
             ));
         }
-        Ok(())
+
+        send_grid.send_forgot_email(&user.email)
     })
     .map_err(|err| {
         println!("forgot_password: {}", err);
@@ -298,6 +300,7 @@ fn main() {
     let jwt_secret = env::var("AUTH_JWT_SECRET").expect("auth jwt secret not found");
     let salt = env::var("AUTH_SALT").expect("auth salt not found");
     let database_url = env::var("TSDB_URL").expect("tsdb url not found");
+    let send_grid_key = env::var("AUTH_SEND_GRID_KEY").expect("send grid key not found");
     let google_client_secret =
         env::var("GOOGLE_CLIENT_SECRET").expect("google client secret not found");
 
@@ -306,12 +309,14 @@ fn main() {
         PostgresConnectionManager::new(database_url, r2d2_postgres::TlsMode::None).unwrap();
     let pool = r2d2::Pool::builder().max_size(3).build(manager).unwrap();
     let google = auth_google::GoogleSignin::new(&google_client_secret);
+    let send_grid = send_grid::SendGrid::new(&send_grid_key);
 
     HttpServer::new(move || {
         App::new()
             .data(pool.clone())
             .data(google.clone())
             .data(auth.clone())
+            .data(send_grid.clone())
             .wrap(middleware::Logger::default())
             .service(
                 web::scope("/auth-db")
