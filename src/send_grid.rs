@@ -52,11 +52,10 @@ impl SendGrid {
             Ok(r) => r,
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         };
-        let body = match res.text() {
-            Ok(text) => text,
-            Err(err) => return Err(AuthError::internal_error(&err.to_string()))
-        };
 
-        Ok(())
+        match res.text() {
+            Ok(_) => Ok(()),
+            Err(err) => Err(AuthError::internal_error(&err.to_string()))
+        }
     }
 }
