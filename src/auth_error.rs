@@ -2,9 +2,9 @@ use actix_web::error::BlockingError;
 use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, ResponseError};
 use r2d2_postgres::r2d2;
+use reqwest;
 use serde_json::{json, to_string_pretty};
 use std::fmt::{self, Formatter, Result as FmtResult};
-use reqwest;
 
 #[derive(Debug, Serialize)]
 pub struct AuthError {

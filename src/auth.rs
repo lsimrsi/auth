@@ -71,9 +71,9 @@ impl User {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String, // subject
-    iss: String, // issuer
-    exp: usize,  // expiration (time)
-    nbf: usize,  // not before (time)
+    iss: String,     // issuer
+    exp: usize,      // expiration (time)
+    nbf: usize,      // not before (time)
 }
 
 pub enum ClaimsDuration {
@@ -85,7 +85,7 @@ impl Claims {
     pub fn new(username: String, duration: ClaimsDuration) -> Claims {
         let exp = match duration {
             ClaimsDuration::TwoWeeks => (Utc::now() + Duration::weeks(2)).timestamp() as usize,
-            ClaimsDuration::Hours24 => (Utc::now() + Duration::hours(24)).timestamp() as usize
+            ClaimsDuration::Hours24 => (Utc::now() + Duration::hours(24)).timestamp() as usize,
         };
 
         Claims {
@@ -120,7 +120,11 @@ impl Auth {
         }
     }
 
-    pub fn create_token(&self, username: String, duration: ClaimsDuration) -> Result<String, AuthError> {
+    pub fn create_token(
+        &self,
+        username: String,
+        duration: ClaimsDuration,
+    ) -> Result<String, AuthError> {
         let claims = Claims::new(username, duration);
 
         match encode(&Header::default(), &claims, self.jwt_secret.as_bytes()) {
@@ -141,7 +145,7 @@ impl Auth {
                 "Please log in or sign up to access this resource.",
                 &err.to_string(),
                 401,
-            ))
+            )),
         }
     }
 }

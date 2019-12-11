@@ -281,7 +281,7 @@ fn forgot_password(
         if rows.is_empty() {
             // return ok even if user isn't found
             // security through obscurity
-            return Ok(())
+            return Ok(());
         }
 
         let mut email = "".to_owned();
