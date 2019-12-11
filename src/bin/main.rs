@@ -1,6 +1,6 @@
 use actix_files as fs;
 use actix_web::{guard, http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
-use auth_app::auth::{self, Auth};
+use auth_app::auth::{self, Auth, ClaimsDuration};
 use auth_app::auth_error::*;
 use auth_app::*;
 use futures::Future;
@@ -57,18 +57,21 @@ fn check_username(
     })
 }
 
+fn get_authorization_header(header_map: &actix_web::http::header::HeaderMap) -> String {
+    if let Some(header) = header_map.get("Authorization") {
+        let mut value = header.to_str().unwrap_or("").to_string();
+        value.drain(0..7); // remove "Bearer " from value
+        return value;
+    }
+    "".to_owned()
+}
+
 fn get_users(
     req: HttpRequest,
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
     auth: web::Data<auth::Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
-    let token_string = if let Some(header) = req.headers().get("Authorization") {
-        let mut value = header.to_str().unwrap_or("").to_string();
-        value.drain(0..7); // remove "Bearer " from value
-        value
-    } else {
-        "".to_owned()
-    };
+    let token_string = get_authorization_header(req.headers());
 
     actix_web::web::block(move || {
         auth.decode_token(&token_string)?;
@@ -123,7 +126,7 @@ fn verify_user(
             break;
         }
         if Auth::verify_hash(hashed_password, user.password.clone()) {
-            auth.create_token(user.username.clone())
+            auth.create_token(user.username.clone(), ClaimsDuration::TwoWeeks)
         } else {
             return Err(AuthError::new(
                 "signin",
@@ -159,7 +162,7 @@ fn add_user(
             "INSERT INTO users (email, username, password) VALUES ($1, $2, $3)",
             &[&user.email, &user.username, &hashed_password],
         ) {
-            Ok(_) => auth.create_token(user.username.clone()),
+            Ok(_) => auth.create_token(user.username.clone(), ClaimsDuration::TwoWeeks),
             Err(err) => {
                 if let Some(dberr) = err.as_db() {
                     println!("some dberr");
@@ -241,10 +244,10 @@ fn auth_google(
                 return Err(AuthError::internal_error(&err.to_string()));
             }
             // new user
-            auth.create_token(token_data.given_name)
+            auth.create_token(token_data.given_name, ClaimsDuration::TwoWeeks)
         } else {
             // returning user, maybe they changed username (todo)
-            auth.create_token(username)
+            auth.create_token(username, ClaimsDuration::TwoWeeks)
         }
     })
     .map_err(|err| {
@@ -262,6 +265,7 @@ fn forgot_password(
     pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
     send_grid: web::Data<send_grid::SendGrid>,
     user: web::Json<auth::User>,
+    auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         user.is_valid_username()?;
@@ -286,7 +290,8 @@ fn forgot_password(
             break;
         }
 
-        send_grid.send_forgot_email(&email)
+        let token = auth.create_token(user.username.clone(), ClaimsDuration::Hours24)?;
+        send_grid.send_forgot_email(email, token)
     })
     .map_err(|err| {
         println!("forgot_password: {}", err);
@@ -296,6 +301,39 @@ fn forgot_password(
         HttpResponse::Ok()
             .content_type("application/json")
             .body(make_success_json("forgotPassword", "Email sent!"))
+    })
+}
+
+fn reset_password(
+    req: HttpRequest,
+    pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    user: web::Json<auth::User>,
+    auth: web::Data<Auth>,
+) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
+    let token_string = get_authorization_header(req.headers());
+
+    actix_web::web::block(move || {
+        user.is_valid_password("resetPassword")?;
+        let claims = auth.decode_token(&token_string)?;
+
+        let hashed_password = auth.create_hash(&user.password);
+        let conn = pool.get()?;
+        match conn.execute(
+            "UPDATE users SET password = $1 WHERE username=$2",
+            &[&hashed_password, &claims.sub],
+        ) {
+            Ok(_) => Ok(auth.create_token(user.username.clone(), ClaimsDuration::Hours24)?),
+            Err(err) => Err(AuthError::internal_error(&err.to_string())),
+        }
+    })
+    .map_err(|err| {
+        println!("forgot_password: {}", err);
+        actix_web::Error::from(AuthError::from(err))
+    })
+    .and_then(|res| {
+        HttpResponse::Ok()
+            .content_type("application/json")
+            .body(make_success_json("resetPassword", res))
     })
 }
 
@@ -326,7 +364,8 @@ fn main() {
                     .route("/add-user", web::post().to_async(add_user))
                     .route("/verify-user", web::post().to_async(verify_user))
                     .route("/check-username", web::post().to_async(check_username))
-                    .route("/forgot-password", web::post().to_async(forgot_password)),
+                    .route("/forgot-password", web::post().to_async(forgot_password))
+                    .route("/reset-password", web::post().to_async(reset_password))
             )
             .service(web::scope("/auth").route("/google", web::post().to_async(auth_google)))
             .service(fs::Files::new("/", "static/build").index_file("index.html"))

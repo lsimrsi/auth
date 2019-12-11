@@ -12,6 +12,7 @@ import SignIn from './pages/SignIn';
 import Users from './pages/Users';
 import Home from './pages/Home';
 import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 import 'normalize.css';
 import './App.css';
@@ -73,6 +74,9 @@ function App() {
         </Route>
         <Route path="/forgot-password">
           <ForgotPassword />
+        </Route>
+        <Route path="/reset-password">
+          <ResetPassword />
         </Route>
       </Switch>
     </div>

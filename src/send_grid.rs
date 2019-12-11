@@ -18,7 +18,13 @@ impl SendGrid {
         }
     }
 
-    pub fn send_forgot_email(&self, to: &str) -> Result<(), AuthError> {
+    pub fn send_forgot_email(&self, to: String, token: String) -> Result<(), AuthError> {
+        let msg = format!("Hi, please use the following link to reset your password:
+        \n\rhttp://localhost:3000/reset-password?token={}
+        \n\rIf you did not initiate this request, you can safely ignore this email.
+        \n\rThanks,
+        \n\rAuth App Support", token);
+
         let data = json!({
           "personalizations": [
             {
@@ -36,11 +42,11 @@ impl SendGrid {
           "content": [
             {
               "type": "text/plain",
-              "value": "Hi, please use the following link to reset your password:\n\rtodo: add link\n\r\n\rIf you did not initiate this request, you can safely ignore this email.\n\r\n\rThanks,\n\rAuth App Support"
+              "value": msg
             }
           ]
         });
-  
+
         let mut res = match self
             .client
             .post("https://api.sendgrid.com/v3/mail/send")

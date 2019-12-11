@@ -70,19 +70,29 @@ impl User {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    sub: String, // subject
+    pub sub: String, // subject
     iss: String, // issuer
     exp: usize,  // expiration (time)
     nbf: usize,  // not before (time)
 }
 
+pub enum ClaimsDuration {
+    TwoWeeks,
+    Hours24,
+}
+
 impl Claims {
-    pub fn new(username: String) -> Claims {
+    pub fn new(username: String, duration: ClaimsDuration) -> Claims {
+        let exp = match duration {
+            ClaimsDuration::TwoWeeks => (Utc::now() + Duration::weeks(2)).timestamp() as usize,
+            ClaimsDuration::Hours24 => (Utc::now() + Duration::hours(24)).timestamp() as usize
+        };
+
         Claims {
             sub: username,
             iss: AUTH_APP.to_owned(),
             nbf: Utc::now().timestamp() as usize,
-            exp: (Utc::now() + Duration::weeks(2)).timestamp() as usize,
+            exp,
         }
     }
 }
@@ -110,8 +120,8 @@ impl Auth {
         }
     }
 
-    pub fn create_token(&self, username: String) -> Result<String, AuthError> {
-        let claims = Claims::new(username);
+    pub fn create_token(&self, username: String, duration: ClaimsDuration) -> Result<String, AuthError> {
+        let claims = Claims::new(username, duration);
 
         match encode(&Header::default(), &claims, self.jwt_secret.as_bytes()) {
             Ok(token) => Ok(token),
@@ -119,19 +129,19 @@ impl Auth {
         }
     }
 
-    pub fn decode_token(&self, token: &str) -> Result<(), AuthError> {
+    pub fn decode_token(&self, token: &str) -> Result<Claims, AuthError> {
         let validation = Validation {
             iss: Some(AUTH_APP.to_owned()),
             ..Default::default()
         };
-        if let Err(err) = decode::<Claims>(&token, self.jwt_secret.as_bytes(), &validation) {
-            return Err(AuthError::new(
+        match decode::<Claims>(&token, self.jwt_secret.as_bytes(), &validation) {
+            Ok(token_data) => Ok(token_data.claims),
+            Err(err) => Err(AuthError::new(
                 "auth",
                 "Please log in or sign up to access this resource.",
                 &err.to_string(),
                 401,
-            ));
-        };
-        Ok(())
+            ))
+        }
     }
 }

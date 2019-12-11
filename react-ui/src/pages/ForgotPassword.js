@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import './SignIn.css';
+import React, { useState } from 'react';
+// import './ForgotPassword.css';
 
-function SignIn(props) {
+function ForgotPassword() {
     const [username, usernameSet] = useState("");
     const [usernameError, usernameErrorSet] = useState("");
     const [emailSent, emailSentSet] = useState(false);
@@ -65,4 +65,4 @@ function SignIn(props) {
     )
 }
 
-export default SignIn;
+export default ForgotPassword;
