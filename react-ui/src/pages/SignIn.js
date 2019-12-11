@@ -21,6 +21,7 @@ function SignIn(props) {
     const [signupPasswordError, signupPasswordErrorSet] = useState("");
 
     const [signinError, signinErrorSet] = useState("");
+    const [signupError, signupErrorSet] = useState("");
 
 
     const onSignupSubmit = async e => {
@@ -105,6 +106,7 @@ function SignIn(props) {
             case "username": usernameErrorSet(json.data); break;
             case "signupPassword": signupPasswordErrorSet(json.data); break;
             case "signin": signinErrorSet(json.data); break;
+            case "signup": signupErrorSet(json.data); break;
             default: break;
         }
     }
@@ -217,6 +219,7 @@ function SignIn(props) {
                         <input name="signupPassword" placeholder="Password" onChange={onInputChange} value={signupPassword} type="password" />
                         <p className="error">{signupPasswordError}</p>
                         <input type="submit" value="Submit" />
+                        <p className="error">{signupError}</p>
                     </form>
                     <div id="gs2"></div>
                 </section>}
