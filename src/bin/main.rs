@@ -358,16 +358,19 @@ fn main() {
             .data(send_grid.clone())
             .wrap(middleware::Logger::default())
             .service(
-                web::scope("/auth-db")
+                web::scope("/auth")
                     // .default_service(web::get().to_async(unsplash_get))
-                    .route("/get-users", web::get().to_async(get_users))
                     .route("/add-user", web::post().to_async(add_user))
                     .route("/verify-user", web::post().to_async(verify_user))
                     .route("/check-username", web::post().to_async(check_username))
                     .route("/forgot-password", web::post().to_async(forgot_password))
                     .route("/reset-password", web::post().to_async(reset_password))
+                    .route("/google", web::post().to_async(auth_google))
             )
-            .service(web::scope("/auth").route("/google", web::post().to_async(auth_google)))
+            .service(
+                web::scope("/protected")
+                    .route("/users", web::get().to_async(get_users))
+            )
             .service(fs::Files::new("/", "static/build").index_file("index.html"))
             .default_service(
                 // 404 for GET request

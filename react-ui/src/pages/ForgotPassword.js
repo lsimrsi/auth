@@ -16,7 +16,7 @@ function ForgotPassword() {
             password: "",
         };
 
-        let res = await fetch(`/auth-db/forgot-password`, {
+        let res = await fetch(`/auth/forgot-password`, {
             method: 'POST',
             body: JSON.stringify(data),
             headers: {

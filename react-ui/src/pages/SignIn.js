@@ -33,7 +33,7 @@ function SignIn(props) {
             password: signupPassword,
         }
 
-        let res = await fetch(`/auth-db/add-user`, {
+        let res = await fetch(`/auth/add-user`, {
             method: 'POST',
             body: JSON.stringify(data),
             headers: {
@@ -59,7 +59,7 @@ function SignIn(props) {
             password: signinPassword,
         }
 
-        let res = await fetch(`/auth-db/verify-user`, {
+        let res = await fetch(`/auth/verify-user`, {
             method: 'POST',
             body: JSON.stringify(data),
             headers: {
@@ -167,7 +167,7 @@ function SignIn(props) {
                 password: "",
             }
 
-            let res = await fetch(`/auth-db/check-username`, {
+            let res = await fetch(`/auth/check-username`, {
                 method: 'POST',
                 body: JSON.stringify(data),
                 headers: {

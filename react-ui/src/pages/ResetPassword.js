@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import jwt from 'jsonwebtoken';
 // import './ResetPassword.css';
 
-function ResetPassword() {
-    const [newPass1, newPass1Set] = useState("");
-    const [newPass1Error, newPass1ErrorSet] = useState("");
+function ResetPassword(props) {
+    const [newPass, newPassSet] = useState("");
+    const [newPassError, newPassErrorSet] = useState("");
     const [reset, resetSet] = useState(false);
     const [username, usernameSet] = useState("");
     const [token, tokenSet] = useState("");
@@ -29,10 +29,10 @@ function ResetPassword() {
         let data = {
             email: "",
             username,
-            password: newPass1,
+            password: newPass,
         };
 
-        let res = await fetch(`/auth-db/reset-password`, {
+        let res = await fetch(`/auth/reset-password`, {
             method: 'POST',
             body: JSON.stringify(data),
             headers: {
@@ -47,20 +47,21 @@ function ResetPassword() {
         if (json && json.type === "success") {
             localStorage.setItem('authapp', json.data);
             resetSet(true);
+            props.authenticatedSet(true);
         }
     }
 
     const onInputChange = e => {
-        newPass1Set(e.target.value)
+        newPassSet(e.target.value)
     }
 
     const checkErrors = (json) => {
-        newPass1ErrorSet("");
+        newPassErrorSet("");
 
         if (!json) return;
         if (json.type !== "error") return;
 
-        newPass1ErrorSet(json.data);
+        newPassErrorSet(json.data);
     }
 
     return (
@@ -68,8 +69,8 @@ function ResetPassword() {
             {!reset && !tokenExpired && <section>
                 <h1>Reset Password</h1>
                 <form onSubmit={onSubmit}>
-                    <input name="newPass1" placeholder="New password" onChange={onInputChange} value={newPass1} />
-                    <p className="error">{newPass1Error}</p>
+                    <input name="newPass" placeholder="New password" onChange={onInputChange} value={newPass} />
+                    <p className="error">{newPassError}</p>
                     <input type="submit" value="Submit" />
                 </form>
             </section>}

@@ -44,7 +44,6 @@ function App() {
 
   const protectedRoute = e => {
     if (authenticated) return;
-
     e.preventDefault();
     if (location.pathname !== "/sign-in") {
       history.push("/sign-in");
@@ -76,7 +75,7 @@ function App() {
           <ForgotPassword />
         </Route>
         <Route path="/reset-password">
-          <ResetPassword />
+          <ResetPassword authenticatedSet={authenticatedSet} />
         </Route>
       </Switch>
     </div>

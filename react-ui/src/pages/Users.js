@@ -9,7 +9,7 @@ function Users() {
     useEffect(() => {
         const getUsers = async () => {
             let token = localStorage.getItem("authapp");
-            let res = await fetch(`/auth-db/get-users`, {
+            let res = await fetch(`/protected/users`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`
