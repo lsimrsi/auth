@@ -146,4 +146,15 @@ impl Db {
         }
         Ok(username)
     }
+
+    pub fn update_user_password(&self, email: &str, password: &str) -> Result<u64, AuthError> {
+        let conn = self.pool.get()?;
+        match conn.execute(
+            "UPDATE users SET password = $1 WHERE username=$2",
+            &[&password, &email],
+        ) {
+            Ok(num) => Ok(num),
+            Err(err) => Err(AuthError::internal_error(&err.to_string())),
+        }
+    }
 }

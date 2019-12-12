@@ -173,7 +173,7 @@ fn forgot_password(
 
 fn reset_password(
     req: HttpRequest,
-    pool: web::Data<Db>,
+    db: web::Data<Db>,
     user: web::Json<auth::User>,
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
@@ -182,15 +182,12 @@ fn reset_password(
     actix_web::web::block(move || {
         user.is_valid_password("resetPassword")?;
         let claims = auth.decode_token(&token_string)?;
-
         let hashed_password = auth.create_hash(&user.password);
-        let conn = pool.pool.get()?;
-        match conn.execute(
-            "UPDATE users SET password = $1 WHERE username=$2",
-            &[&hashed_password, &claims.sub],
-        ) {
-            Ok(_) => Ok(auth.create_token(&user.username, ClaimsDuration::Weeks2)?),
-            Err(err) => Err(AuthError::internal_error(&err.to_string())),
+        let num = db.update_user_password(&claims.sub, &hashed_password)?;
+        if num != 0 {
+            auth.create_token(&user.username, ClaimsDuration::Weeks2)
+        } else {
+            Err(AuthError::internal_error("No rows modified for updating password."))
         }
     })
     .map_err(|err| {
