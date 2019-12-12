@@ -33,28 +33,14 @@ fn check_username(
 
 fn get_users(
     req: HttpRequest,
-    pool: web::Data<Db>,
+    db: web::Data<Db>,
     auth: web::Data<auth::Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     let token_string = get_authorization_header(req.headers());
 
     actix_web::web::block(move || {
         auth.decode_token(&token_string)?;
-
-        let mut users: Vec<String> = Vec::new();
-        let conn = pool.pool.get()?;
-
-        let rows = match conn.query("SELECT username FROM users", &[]) {
-            Ok(r) => r,
-            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
-        };
-
-        for row in &rows {
-            let username: String = row.get(0);
-            users.push(username);
-        }
-
-        Ok(users)
+        db.get_all_users()
     })
     .map_err(|err| {
         println!("get_users: {}", err);
@@ -69,39 +55,13 @@ fn get_users(
 
 fn verify_user(
     user: web::Json<auth::User>,
-    pool: web::Data<Db>,
+    db: web::Data<Db>,
     auth: web::Data<auth::Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         user.is_valid_signin()?;
-
-        let conn = pool.pool.get()?;
-
-        let rows = match conn.query(
-            "SELECT username, password FROM users WHERE email=$1",
-            &[&user.email],
-        ) {
-            Ok(r) => r,
-            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
-        };
-
-        let mut hashed_password = "".to_owned();
-        let mut username = "".to_owned();
-        for row in &rows {
-            username = row.get(0);
-            hashed_password = row.get(1);
-            break;
-        }
-        if Auth::verify_hash(hashed_password, user.password.clone()) {
-            auth.create_token(username, ClaimsDuration::Weeks2)
-        } else {
-            return Err(AuthError::new(
-                "signin",
-                "Email and password combo not found.",
-                "Token hash wasn't verified.",
-                400,
-            ));
-        }
+        let username = db.verify_user(&user)?;
+        auth.create_token(username, ClaimsDuration::Weeks2)
     })
     .map_err(|err| {
         println!("verify_user: {}", err);

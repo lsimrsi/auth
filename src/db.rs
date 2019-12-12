@@ -77,4 +77,52 @@ impl Db {
         }
         Ok(true)
     }
+
+    pub fn get_all_users(&self) -> Result<Vec<String>, AuthError> {
+        let mut users: Vec<String> = Vec::new();
+        let conn = self.pool.get()?;
+
+        let rows = match conn.query("SELECT username FROM users", &[]) {
+            Ok(r) => r,
+            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
+        };
+
+        for row in &rows {
+            let username: String = row.get(0);
+            users.push(username);
+        }
+
+        Ok(users)
+    }
+
+    pub fn verify_user(&self, user: &User) -> Result<String, AuthError> {
+
+        let conn = self.pool.get()?;
+
+        let rows = match conn.query(
+            "SELECT username, password FROM users WHERE email=$1",
+            &[&user.email],
+        ) {
+            Ok(r) => r,
+            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
+        };
+
+        let mut hashed_password = "".to_owned();
+        let mut username = "".to_owned();
+        for row in &rows {
+            username = row.get(0);
+            hashed_password = row.get(1);
+            break;
+        }
+        if Auth::verify_hash(hashed_password, user.password.clone()) {
+            Ok(username)
+        } else {
+            return Err(AuthError::new(
+                "signin",
+                "Email and password combo not found.",
+                "Token hash wasn't verified.",
+                400,
+            ));
+        }
+    }
 }
