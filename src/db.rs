@@ -65,7 +65,7 @@ impl Db {
     pub fn user_exists(&self, username: &str) -> Result<bool, AuthError> {
         let conn = self.pool.get()?;
         let rows = match conn.query(
-            "SELECT username FROM users WHERE username=$1",
+            "SELECT username FROM users WHERE username=$1 OR email=$1",
             &[&username],
         ) {
             Ok(r) => r,
@@ -124,5 +124,26 @@ impl Db {
                 400,
             ));
         }
+    }
+
+    pub fn get_user_by_email(&self, email: &str) -> Result<String, AuthError> {
+        let conn = self.pool.get()?;
+        let rows = match conn.query("SELECT username FROM users WHERE email=$1", &[&email]) {
+            Ok(r) => r,
+            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
+        };
+
+        if rows.is_empty() {
+            // return ok even if user isn't found
+            // ecurity through obscurity
+            return Ok("".to_owned());
+        }
+
+        let mut username = "".to_owned();
+        for row in &rows {
+            username = row.get(0);
+            break;
+        }
+        Ok(username)
     }
 }

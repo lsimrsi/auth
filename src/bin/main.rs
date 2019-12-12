@@ -137,42 +137,37 @@ fn auth_google(
 }
 
 fn forgot_password(
-    pool: web::Data<Db>,
+    db: web::Data<Db>,
     send_grid: web::Data<send_grid::SendGrid>,
     user: web::Json<auth::User>,
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
+        // check if the email is valid
         user.is_valid_email("email")?;
-        let conn = pool.pool.get()?;
-        let rows = match conn.query("SELECT username FROM users WHERE email=$1", &[&user.email]) {
-            Ok(r) => r,
-            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
-        };
 
-        if rows.is_empty() {
-            // return ok even if user isn't found
-            // security through obscurity
-            return Ok(());
+        // if the email exists in the database,
+        // the username is returned
+        let username = db.get_user_by_email(&user.email)?;
+
+        // if username is not empty, send a password reset email
+        if !username.is_empty() {
+            let token = auth.create_token(&username, ClaimsDuration::Minutes5)?;
+            send_grid.send_forgot_email(&user.email, &token)?;
         }
 
-        let mut username = "".to_owned();
-        for row in &rows {
-            username = row.get(0);
-            break;
-        }
-
-        let token = auth.create_token(&username, ClaimsDuration::Minutes5)?;
-        send_grid.send_forgot_email(user.email.clone(), token)
+        // return ok even if the username is empty
+        // security through obscurity
+        Ok("Email sent!")
     })
     .map_err(|err| {
         println!("forgot_password: {}", err);
         actix_web::Error::from(AuthError::from(err))
     })
-    .and_then(|_| {
+    .and_then(|res| {
         HttpResponse::Ok()
             .content_type("application/json")
-            .body(make_success_json("forgotPassword", "Email sent!"))
+            .body(make_success_json("forgotPassword", res))
     })
 }
 
