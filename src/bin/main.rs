@@ -5,46 +5,19 @@ use auth_app::auth_error::*;
 use auth_app::db::Db;
 use auth_app::*;
 use futures::Future;
-use r2d2_postgres::r2d2;
-use r2d2_postgres::PostgresConnectionManager;
 use serde;
 use serde_json::{self, json};
 use std::env;
 
-fn make_success_json<T>(context: &str, data: T) -> serde_json::value::Value
-where
-    T: Into<serde_json::value::Value> + serde::Serialize,
-{
-    json!({
-        "type": "success",
-        "context": context,
-        "data": data
-    })
-}
-
 fn check_username(
-    pool: web::Data<Db>,
+    db: web::Data<Db>,
     user: web::Json<auth::User>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
-        let conn = pool.pool.get()?;
-        let rows = match conn.query(
-            "SELECT username FROM users WHERE username=$1",
-            &[&user.username],
-        ) {
-            Ok(r) => r,
-            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
-        };
-
-        if rows.is_empty() {
-            Ok(())
-        } else {
-            return Err(AuthError::new(
-                "username",
-                "This username has already been taken.",
-                "",
-                500,
-            ));
+        let exists = db.user_exists(&user)?;
+        match exists {
+            true => Err(AuthError::new("username", "This username has already been taken.", "", 500)),
+            false => Ok(())
         }
     })
     .map_err(|err| {
@@ -56,15 +29,6 @@ fn check_username(
             .content_type("application/json")
             .body(make_success_json("username", true))
     })
-}
-
-fn get_authorization_header(header_map: &actix_web::http::header::HeaderMap) -> String {
-    if let Some(header) = header_map.get("Authorization") {
-        let mut value = header.to_str().unwrap_or("").to_string();
-        value.drain(0..7); // remove "Bearer " from value
-        return value;
-    }
-    "".to_owned()
 }
 
 fn get_users(
@@ -233,10 +197,7 @@ fn forgot_password(
     actix_web::web::block(move || {
         user.is_valid_email("email")?;
         let conn = pool.pool.get()?;
-        let rows = match conn.query(
-            "SELECT username FROM users WHERE email=$1",
-            &[&user.email],
-        ) {
+        let rows = match conn.query("SELECT username FROM users WHERE email=$1", &[&user.email]) {
             Ok(r) => r,
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         };
@@ -308,7 +269,7 @@ fn main() {
 
     let auth = Auth::new(jwt_secret, salt);
     // let manager =
-        // PostgresConnectionManager::new(database_url.clone(), r2d2_postgres::TlsMode::None).unwrap();
+    // PostgresConnectionManager::new(database_url.clone(), r2d2_postgres::TlsMode::None).unwrap();
     // let pool = r2d2::Pool::builder().max_size(3).build(manager).unwrap();
     let google = auth_google::GoogleSignin::new();
     let send_grid = send_grid::SendGrid::new(&send_grid_key);
@@ -329,12 +290,9 @@ fn main() {
                     .route("/check-username", web::post().to_async(check_username))
                     .route("/forgot-password", web::post().to_async(forgot_password))
                     .route("/reset-password", web::post().to_async(reset_password))
-                    .route("/google", web::post().to_async(auth_google))
+                    .route("/google", web::post().to_async(auth_google)),
             )
-            .service(
-                web::scope("/protected")
-                    .route("/users", web::get().to_async(get_users))
-            )
+            .service(web::scope("/protected").route("/users", web::get().to_async(get_users)))
             .service(fs::Files::new("/", "static/build").index_file("index.html"))
             .default_service(
                 // 404 for GET request
@@ -363,4 +321,24 @@ fn get_server_port() -> u16 {
         .unwrap_or_else(|_| 5000.to_string())
         .parse()
         .expect("PORT must be a number")
+}
+
+fn get_authorization_header(header_map: &actix_web::http::header::HeaderMap) -> String {
+    if let Some(header) = header_map.get("Authorization") {
+        let mut value = header.to_str().unwrap_or("").to_string();
+        value.drain(0..7); // remove "Bearer " from value
+        return value;
+    }
+    "".to_owned()
+}
+
+fn make_success_json<T>(context: &str, data: T) -> serde_json::value::Value
+where
+    T: Into<serde_json::value::Value> + serde::Serialize,
+{
+    json!({
+        "type": "success",
+        "context": context,
+        "data": data
+    })
 }
