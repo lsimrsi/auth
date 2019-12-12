@@ -77,15 +77,17 @@ pub struct Claims {
 }
 
 pub enum ClaimsDuration {
-    TwoWeeks,
+    Weeks2,
     Hours24,
+    Minutes5,
 }
 
 impl Claims {
     pub fn new(username: String, duration: ClaimsDuration) -> Claims {
         let exp = match duration {
-            ClaimsDuration::TwoWeeks => (Utc::now() + Duration::weeks(2)).timestamp() as usize,
+            ClaimsDuration::Weeks2 => (Utc::now() + Duration::weeks(2)).timestamp() as usize,
             ClaimsDuration::Hours24 => (Utc::now() + Duration::hours(24)).timestamp() as usize,
+            ClaimsDuration::Minutes5 => (Utc::now() + Duration::minutes(5)).timestamp() as usize,
         };
 
         Claims {
@@ -110,7 +112,7 @@ impl Auth {
 
     pub fn create_hash(&self, password: &str) -> String {
         let config = Config::default();
-        argon2::hash_encoded(password.as_bytes(), self.salt.as_bytes(), &config).unwrap()
+        argon2::hash_encoded(password.as_bytes(), self.salt.as_bytes(), &config).expect("hash failed")
     }
 
     pub fn verify_hash(hash: String, password: String) -> bool {

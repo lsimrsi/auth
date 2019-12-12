@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 // import './ForgotPassword.css';
 
 function ForgotPassword() {
-    const [username, usernameSet] = useState("");
-    const [usernameError, usernameErrorSet] = useState("");
+    const [email, emailSet] = useState("");
+    const [emailError, emailErrorSet] = useState("");
     const [emailSent, emailSentSet] = useState(false);
     const [successMessage, successMessageSet] = useState("Email Sent.");
 
@@ -11,8 +11,8 @@ function ForgotPassword() {
         e.preventDefault();
 
         let data = {
-            email: "",
-            username,
+            email,
+            username: "",
             password: "",
         };
 
@@ -34,16 +34,16 @@ function ForgotPassword() {
     }
 
     const onInputChange = e => {
-        usernameSet(e.target.value)
+        emailSet(e.target.value)
     }
 
     const checkErrors = (json) => {
-        usernameErrorSet("");
+        emailErrorSet("");
 
         if (!json) return;
         if (json.type !== "error") return;
 
-        usernameErrorSet(json.data);
+        emailErrorSet(json.data);
     }
 
     return (
@@ -51,8 +51,8 @@ function ForgotPassword() {
             {!emailSent && <section id="signup">
                 <h1>Forgot Password</h1>
                 <form onSubmit={onSubmit}>
-                    <input name="username" placeholder="Username" onChange={onInputChange} value={username} />
-                    <p className="error">{usernameError}</p>
+                    <input name="email" placeholder="email" onChange={onInputChange} value={email} type="email" />
+                    <p className="error">{emailError}</p>
                     <input type="submit" value="Submit" />
                 </form>
             </section>}

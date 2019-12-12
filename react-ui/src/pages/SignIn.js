@@ -197,9 +197,9 @@ function SignIn(props) {
                 <section id="signin">
                     <h1>Sign In</h1>
                     <form onSubmit={onSigninSubmit}>
-                        <input name="signinEmail" placeholder="Email" onChange={onInputChange} value={signinEmail} />
+                        <input name="signinEmail" placeholder="Email" onChange={onInputChange} value={signinEmail} type="email" />
                         <p className="error">{signinEmailError}</p>
-                        <input name="signinPassword" placeholder="Password" onChange={onInputChange} value={signinPassword} type="signinPassword" />
+                        <input name="signinPassword" placeholder="Password" onChange={onInputChange} value={signinPassword} type="signinPassword" type="password" />
                         <Link to="/forgot-password">Forget password?</Link>
                         <p className="error">{signinPasswordError}</p>
                         <input type="submit" value="Submit" />
@@ -212,7 +212,7 @@ function SignIn(props) {
                 <section id="signup">
                     <h1>Sign Up</h1>
                     <form onSubmit={onSignupSubmit}>
-                        <input name="signupEmail" placeholder="Email" onChange={onInputChange} value={signupEmail} />
+                        <input name="signupEmail" placeholder="Email" onChange={onInputChange} value={signupEmail} type="email" />
                         <p className="error">{signupEmailError}</p>
                         <input name="username" placeholder="Username" onChange={onInputChange} value={username} />
                         <p className="error">{usernameError}</p>

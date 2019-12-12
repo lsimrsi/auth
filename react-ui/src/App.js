@@ -24,12 +24,15 @@ function App() {
   let location = useLocation();
 
   useEffect(() => {
+    console.log('called');
     let token = localStorage.getItem("authapp");
+    console.log('token', token);
     if (!token) return;
 
-    let res = jwt.decode(token);
-    if (res.exp * 1000 > Date.now()) {
-      usernameSet(res.sub);
+    let decoded_token = jwt.decode(token);
+    console.log('decoded token', decoded_token);
+    if (decoded_token.exp * 1000 > Date.now()) {
+      usernameSet(decoded_token.sub);
       authenticatedSet(true);
     }
   }, [authenticated]);

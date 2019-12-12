@@ -69,7 +69,7 @@ function ResetPassword(props) {
             {!reset && !tokenExpired && <section>
                 <h1>Reset Password</h1>
                 <form onSubmit={onSubmit}>
-                    <input name="newPass" placeholder="New password" onChange={onInputChange} value={newPass} />
+                    <input name="newPass" placeholder="New password" onChange={onInputChange} value={newPass} type="password" />
                     <p className="error">{newPassError}</p>
                     <input type="submit" value="Submit" />
                 </form>

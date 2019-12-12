@@ -113,7 +113,7 @@ fn verify_user(
         let conn = pool.get()?;
 
         let rows = match conn.query(
-            "SELECT email, username, password FROM users WHERE email=$1",
+            "SELECT username, password FROM users WHERE email=$1",
             &[&user.email],
         ) {
             Ok(r) => r,
@@ -121,12 +121,14 @@ fn verify_user(
         };
 
         let mut hashed_password = "".to_owned();
+        let mut username = "".to_owned();
         for row in &rows {
-            hashed_password = row.get(2);
+            username = row.get(0);
+            hashed_password = row.get(1);
             break;
         }
         if Auth::verify_hash(hashed_password, user.password.clone()) {
-            auth.create_token(user.username.clone(), ClaimsDuration::TwoWeeks)
+            auth.create_token(username, ClaimsDuration::Weeks2)
         } else {
             return Err(AuthError::new(
                 "signin",
@@ -162,7 +164,7 @@ fn add_user(
             "INSERT INTO users (email, username, password) VALUES ($1, $2, $3)",
             &[&user.email, &user.username, &hashed_password],
         ) {
-            Ok(_) => auth.create_token(user.username.clone(), ClaimsDuration::TwoWeeks),
+            Ok(_) => auth.create_token(user.username.clone(), ClaimsDuration::Weeks2),
             Err(err) => {
                 if let Some(dberr) = err.as_db() {
                     println!("some dberr");
@@ -244,10 +246,10 @@ fn auth_google(
                 return Err(AuthError::internal_error(&err.to_string()));
             }
             // new user
-            auth.create_token(token_data.given_name, ClaimsDuration::TwoWeeks)
+            auth.create_token(token_data.given_name, ClaimsDuration::Weeks2)
         } else {
             // returning user, maybe they changed username (todo)
-            auth.create_token(username, ClaimsDuration::TwoWeeks)
+            auth.create_token(username, ClaimsDuration::Weeks2)
         }
     })
     .map_err(|err| {
@@ -268,11 +270,11 @@ fn forgot_password(
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
-        user.is_valid_username()?;
+        user.is_valid_email("email")?;
         let conn = pool.get()?;
         let rows = match conn.query(
-            "SELECT email FROM users WHERE username=$1",
-            &[&user.username],
+            "SELECT username FROM users WHERE email=$1",
+            &[&user.email],
         ) {
             Ok(r) => r,
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
@@ -284,14 +286,14 @@ fn forgot_password(
             return Ok(());
         }
 
-        let mut email = "".to_owned();
+        let mut username = "".to_owned();
         for row in &rows {
-            email = row.get(0);
+            username = row.get(0);
             break;
         }
 
-        let token = auth.create_token(user.username.clone(), ClaimsDuration::Hours24)?;
-        send_grid.send_forgot_email(email, token)
+        let token = auth.create_token(username, ClaimsDuration::Minutes5)?;
+        send_grid.send_forgot_email(user.email.clone(), token)
     })
     .map_err(|err| {
         println!("forgot_password: {}", err);
@@ -322,7 +324,7 @@ fn reset_password(
             "UPDATE users SET password = $1 WHERE username=$2",
             &[&hashed_password, &claims.sub],
         ) {
-            Ok(_) => Ok(auth.create_token(user.username.clone(), ClaimsDuration::Hours24)?),
+            Ok(_) => Ok(auth.create_token(user.username.clone(), ClaimsDuration::Weeks2)?),
             Err(err) => Err(AuthError::internal_error(&err.to_string())),
         }
     })
