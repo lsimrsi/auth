@@ -62,11 +62,11 @@ impl Db {
         }
     }
 
-    pub fn user_exists(&self, user: &User) -> Result<bool, AuthError> {
+    pub fn user_exists(&self, username: &str) -> Result<bool, AuthError> {
         let conn = self.pool.get()?;
         let rows = match conn.query(
             "SELECT username FROM users WHERE username=$1",
-            &[&user.username],
+            &[&username],
         ) {
             Ok(r) => r,
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),

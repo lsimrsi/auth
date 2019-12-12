@@ -20,6 +20,15 @@ pub struct User {
 }
 
 impl User {
+    pub fn new(email: &str, username: &str, password: &str) -> User {
+        User {
+            id: None,
+            email: email.to_owned(),
+            username: username.to_owned(),
+            password: password.to_owned(),
+        }
+    }
+
     pub fn is_valid_email(&self, context: &str) -> Result<(), AuthError> {
         if self.email == "" {
             return Err(AuthError::new(
@@ -124,10 +133,10 @@ impl Auth {
 
     pub fn create_token(
         &self,
-        username: String,
+        username: &str,
         duration: ClaimsDuration,
     ) -> Result<String, AuthError> {
-        let claims = Claims::new(username, duration);
+        let claims = Claims::new(username.to_owned(), duration);
 
         match encode(&Header::default(), &claims, self.jwt_secret.as_bytes()) {
             Ok(token) => Ok(token),

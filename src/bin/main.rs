@@ -14,7 +14,7 @@ fn check_username(
     user: web::Json<auth::User>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
-        let exists = db.user_exists(&user)?;
+        let exists = db.user_exists(&user.username)?;
         match exists {
             true => Err(AuthError::new("username", "This username has already been taken.", "", 500)),
             false => Ok(())
@@ -61,7 +61,7 @@ fn verify_user(
     actix_web::web::block(move || {
         user.is_valid_signin()?;
         let username = db.verify_user(&user)?;
-        auth.create_token(username, ClaimsDuration::Weeks2)
+        auth.create_token(&username, ClaimsDuration::Weeks2)
     })
     .map_err(|err| {
         println!("verify_user: {}", err);
@@ -82,7 +82,7 @@ fn add_user(
     actix_web::web::block(move || {
         user.is_valid_signup()?;
         db.insert_user(&user, &auth)?;
-        auth.create_token(user.username.clone(), ClaimsDuration::Weeks2)
+        auth.create_token(&user.username, ClaimsDuration::Weeks2)
     })
     .map_err(|err| {
         println!("add_user: {}", err);
@@ -97,45 +97,33 @@ fn add_user(
 
 fn auth_google(
     token: web::Json<auth::GoogleToken>,
-    pool: web::Data<Db>,
+    db: web::Data<Db>,
     google: web::Data<auth_google::GoogleSignin>,
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
+        // decode the google token or throw an error
         let token_data = match google.decode_token(&token.id_token) {
             Ok(td) => td,
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         };
 
-        let conn = pool.pool.get()?;
+        // create User from token data
+        let user = auth::User::new(&token_data.email, &token_data.given_name, "");
 
-        let mut username = "".to_owned();
-        let rows = match conn.query(
-            "SELECT username FROM users WHERE email=$1",
-            &[&token_data.email],
-        ) {
-            Ok(r) => r,
-            Err(err) => return Err(AuthError::internal_error(&err.to_string())),
-        };
+        // check that the user is valid by our own standards or throw an error
+        user.is_valid_email("email")?;
+        user.is_valid_username()?;
 
-        for row in &rows {
-            username = row.get(0);
-            break;
+        // check if user exists in our db
+        let exists = db.user_exists(&user.username)?;
+
+        if !exists {
+            // if user doesn't exist, create a new user
+            db.insert_user(&user, &auth)?;
         }
-
-        if username == "" {
-            if let Err(err) = conn.execute(
-                "INSERT INTO users (email, username, password) VALUES ($1, $2, $3)",
-                &[&token_data.email, &token_data.given_name, &""],
-            ) {
-                return Err(AuthError::internal_error(&err.to_string()));
-            }
-            // new user
-            auth.create_token(token_data.given_name, ClaimsDuration::Weeks2)
-        } else {
-            // returning user, maybe they changed username (todo)
-            auth.create_token(username, ClaimsDuration::Weeks2)
-        }
+        // todo: prevent google users from changing their username
+        auth.create_token(&user.username, ClaimsDuration::Weeks2)
     })
     .map_err(|err| {
         println!("auth_google: {}", err);
@@ -174,7 +162,7 @@ fn forgot_password(
             break;
         }
 
-        let token = auth.create_token(username, ClaimsDuration::Minutes5)?;
+        let token = auth.create_token(&username, ClaimsDuration::Minutes5)?;
         send_grid.send_forgot_email(user.email.clone(), token)
     })
     .map_err(|err| {
@@ -206,7 +194,7 @@ fn reset_password(
             "UPDATE users SET password = $1 WHERE username=$2",
             &[&hashed_password, &claims.sub],
         ) {
-            Ok(_) => Ok(auth.create_token(user.username.clone(), ClaimsDuration::Weeks2)?),
+            Ok(_) => Ok(auth.create_token(&user.username, ClaimsDuration::Weeks2)?),
             Err(err) => Err(AuthError::internal_error(&err.to_string())),
         }
     })
