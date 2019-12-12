@@ -2,6 +2,7 @@ use actix_files as fs;
 use actix_web::{guard, http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
 use auth_app::auth::{self, Auth, ClaimsDuration};
 use auth_app::auth_error::*;
+use auth_app::db::Db;
 use auth_app::*;
 use futures::Future;
 use r2d2_postgres::r2d2;
@@ -22,11 +23,11 @@ where
 }
 
 fn check_username(
-    pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    pool: web::Data<Db>,
     user: web::Json<auth::User>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
-        let conn = pool.get()?;
+        let conn = pool.pool.get()?;
         let rows = match conn.query(
             "SELECT username FROM users WHERE username=$1",
             &[&user.username],
@@ -68,7 +69,7 @@ fn get_authorization_header(header_map: &actix_web::http::header::HeaderMap) -> 
 
 fn get_users(
     req: HttpRequest,
-    pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    pool: web::Data<Db>,
     auth: web::Data<auth::Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     let token_string = get_authorization_header(req.headers());
@@ -77,7 +78,7 @@ fn get_users(
         auth.decode_token(&token_string)?;
 
         let mut users: Vec<String> = Vec::new();
-        let conn = pool.get()?;
+        let conn = pool.pool.get()?;
 
         let rows = match conn.query("SELECT username FROM users", &[]) {
             Ok(r) => r,
@@ -104,13 +105,13 @@ fn get_users(
 
 fn verify_user(
     user: web::Json<auth::User>,
-    pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    pool: web::Data<Db>,
     auth: web::Data<auth::Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         user.is_valid_signin()?;
 
-        let conn = pool.get()?;
+        let conn = pool.pool.get()?;
 
         let rows = match conn.query(
             "SELECT username, password FROM users WHERE email=$1",
@@ -151,53 +152,13 @@ fn verify_user(
 
 fn add_user(
     user: web::Json<auth::User>,
-    pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    db: web::Data<Db>,
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         user.is_valid_signup()?;
-
-        let conn = pool.get()?;
-
-        let hashed_password = auth.create_hash(&user.password.clone());
-        match conn.execute(
-            "INSERT INTO users (email, username, password) VALUES ($1, $2, $3)",
-            &[&user.email, &user.username, &hashed_password],
-        ) {
-            Ok(_) => auth.create_token(user.username.clone(), ClaimsDuration::Weeks2),
-            Err(err) => {
-                if let Some(dberr) = err.as_db() {
-                    println!("some dberr");
-                    // unique violation
-                    if !(dberr.code.code() == "23505") {
-                        println!("code doesn't equal 23505");
-                        return Err(AuthError::internal_error(&err.to_string()));
-                    }
-                    if let Some(constraint) = &dberr.constraint {
-                        match constraint.as_ref() {
-                            "users_email_key" => {
-                                return Err(AuthError::new(
-                                    "signupEmail",
-                                    "This email has already been registered.",
-                                    "",
-                                    500,
-                                ))
-                            }
-                            "users_username_key" => {
-                                return Err(AuthError::new(
-                                    "username",
-                                    "This username has already been taken.",
-                                    "",
-                                    500,
-                                ))
-                            }
-                            _ => return Err(AuthError::internal_error(&err.to_string())),
-                        }
-                    }
-                }
-                Err(AuthError::internal_error(&err.to_string()))
-            }
-        }
+        db.insert_user(&user, &auth)?;
+        auth.create_token(user.username.clone(), ClaimsDuration::Weeks2)
     })
     .map_err(|err| {
         println!("add_user: {}", err);
@@ -212,7 +173,7 @@ fn add_user(
 
 fn auth_google(
     token: web::Json<auth::GoogleToken>,
-    pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    pool: web::Data<Db>,
     google: web::Data<auth_google::GoogleSignin>,
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
@@ -222,7 +183,7 @@ fn auth_google(
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         };
 
-        let conn = pool.get()?;
+        let conn = pool.pool.get()?;
 
         let mut username = "".to_owned();
         let rows = match conn.query(
@@ -264,14 +225,14 @@ fn auth_google(
 }
 
 fn forgot_password(
-    pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    pool: web::Data<Db>,
     send_grid: web::Data<send_grid::SendGrid>,
     user: web::Json<auth::User>,
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         user.is_valid_email("email")?;
-        let conn = pool.get()?;
+        let conn = pool.pool.get()?;
         let rows = match conn.query(
             "SELECT username FROM users WHERE email=$1",
             &[&user.email],
@@ -308,7 +269,7 @@ fn forgot_password(
 
 fn reset_password(
     req: HttpRequest,
-    pool: web::Data<r2d2::Pool<PostgresConnectionManager>>,
+    pool: web::Data<Db>,
     user: web::Json<auth::User>,
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
@@ -319,7 +280,7 @@ fn reset_password(
         let claims = auth.decode_token(&token_string)?;
 
         let hashed_password = auth.create_hash(&user.password);
-        let conn = pool.get()?;
+        let conn = pool.pool.get()?;
         match conn.execute(
             "UPDATE users SET password = $1 WHERE username=$2",
             &[&hashed_password, &claims.sub],
@@ -346,15 +307,16 @@ fn main() {
     let send_grid_key = env::var("AUTH_SEND_GRID_KEY").expect("send grid key not found");
 
     let auth = Auth::new(jwt_secret, salt);
-    let manager =
-        PostgresConnectionManager::new(database_url, r2d2_postgres::TlsMode::None).unwrap();
-    let pool = r2d2::Pool::builder().max_size(3).build(manager).unwrap();
+    // let manager =
+        // PostgresConnectionManager::new(database_url.clone(), r2d2_postgres::TlsMode::None).unwrap();
+    // let pool = r2d2::Pool::builder().max_size(3).build(manager).unwrap();
     let google = auth_google::GoogleSignin::new();
     let send_grid = send_grid::SendGrid::new(&send_grid_key);
+    let db = Db::new(&database_url);
 
     HttpServer::new(move || {
         App::new()
-            .data(pool.clone())
+            .data(db.clone())
             .data(google.clone())
             .data(auth.clone())
             .data(send_grid.clone())

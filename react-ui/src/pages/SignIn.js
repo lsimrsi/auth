@@ -47,6 +47,9 @@ function SignIn(props) {
         if (json && json.type === "success") {
             localStorage.setItem('authapp', json.data);
             authenticatedSet(true);
+            signupEmailSet("");
+            usernameSet("");
+            signupPasswordSet("");
         }
     }
 
@@ -73,6 +76,8 @@ function SignIn(props) {
         if (json && json.type === "success") {
             localStorage.setItem('authapp', json.data);
             authenticatedSet(true);
+            signinEmailSet("");
+            signinPasswordSet("");
         }
     }
 

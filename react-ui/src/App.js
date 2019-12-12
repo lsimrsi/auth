@@ -31,7 +31,7 @@ function App() {
 
     let decoded_token = jwt.decode(token);
     console.log('decoded token', decoded_token);
-    if (decoded_token.exp * 1000 > Date.now()) {
+    if (decoded_token && decoded_token.exp * 1000 > Date.now()) {
       usernameSet(decoded_token.sub);
       authenticatedSet(true);
     }
