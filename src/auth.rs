@@ -1,4 +1,4 @@
-use crate::auth_error::AuthError;
+use crate::error::AuthError;
 use argon2::{self, Config};
 use chrono::{Duration, Utc};
 use jsonwebtoken as jwt;
@@ -11,7 +11,7 @@ pub struct GoogleToken {
     pub id_token: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct User {
     id: Option<i32>,
     pub email: String,
@@ -27,6 +27,10 @@ impl User {
             username: username.to_owned(),
             password: password.to_owned(),
         }
+    }
+
+    pub fn set_password(&mut self, password: &str) {
+        self.password = password.to_owned();
     }
 
     pub fn is_valid_email(&self, context: &str) -> Result<(), AuthError> {
@@ -85,18 +89,18 @@ pub struct Claims {
     nbf: usize,      // not before (time)
 }
 
-pub enum ClaimsDuration {
+pub enum TokenDuration {
     Weeks2,
     Hours24,
     Minutes5,
 }
 
 impl Claims {
-    pub fn new(username: String, duration: ClaimsDuration) -> Claims {
+    pub fn new(username: String, duration: TokenDuration) -> Claims {
         let exp = match duration {
-            ClaimsDuration::Weeks2 => (Utc::now() + Duration::weeks(2)).timestamp() as usize,
-            ClaimsDuration::Hours24 => (Utc::now() + Duration::hours(24)).timestamp() as usize,
-            ClaimsDuration::Minutes5 => (Utc::now() + Duration::minutes(5)).timestamp() as usize,
+            TokenDuration::Weeks2 => (Utc::now() + Duration::weeks(2)).timestamp() as usize,
+            TokenDuration::Hours24 => (Utc::now() + Duration::hours(24)).timestamp() as usize,
+            TokenDuration::Minutes5 => (Utc::now() + Duration::minutes(5)).timestamp() as usize,
         };
 
         Claims {
@@ -134,7 +138,7 @@ impl Auth {
     pub fn create_token(
         &self,
         username: &str,
-        duration: ClaimsDuration,
+        duration: TokenDuration,
     ) -> Result<String, AuthError> {
         let claims = Claims::new(username.to_owned(), duration);
 

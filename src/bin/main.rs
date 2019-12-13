@@ -1,8 +1,7 @@
 use actix_files as fs;
 use actix_web::{guard, http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
-use auth_app::auth::{self, Auth, ClaimsDuration};
-use auth_app::auth_error::*;
-use auth_app::db::Db;
+use auth_app::auth::{self, Auth, TokenDuration};
+use auth_app::error::AuthError;
 use auth_app::*;
 use futures::Future;
 use serde;
@@ -10,7 +9,7 @@ use serde_json::{self, json};
 use std::env;
 
 fn check_username(
-    db: web::Data<Db>,
+    db: web::Data<db::Db>,
     user: web::Json<auth::User>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
@@ -33,7 +32,7 @@ fn check_username(
 
 fn get_users(
     req: HttpRequest,
-    db: web::Data<Db>,
+    db: web::Data<db::Db>,
     auth: web::Data<auth::Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     let token_string = get_authorization_header(req.headers());
@@ -55,13 +54,13 @@ fn get_users(
 
 fn verify_user(
     user: web::Json<auth::User>,
-    db: web::Data<Db>,
+    db: web::Data<db::Db>,
     auth: web::Data<auth::Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         user.is_valid_signin()?;
         let username = db.verify_user(&user)?;
-        auth.create_token(&username, ClaimsDuration::Weeks2)
+        auth.create_token(&username, TokenDuration::Weeks2)
     })
     .map_err(|err| {
         println!("verify_user: {}", err);
@@ -76,13 +75,16 @@ fn verify_user(
 
 fn add_user(
     user: web::Json<auth::User>,
-    db: web::Data<Db>,
+    db: web::Data<db::Db>,
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         user.is_valid_signup()?;
-        db.insert_user(&user, &auth)?;
-        auth.create_token(&user.username, ClaimsDuration::Weeks2)
+        let hashed_password = auth.create_hash(&user.password);
+        let mut user = user.clone();
+        user.set_password(&hashed_password);
+        db.insert_user(&user)?;
+        auth.create_token(&user.username, TokenDuration::Weeks2)
     })
     .map_err(|err| {
         println!("add_user: {}", err);
@@ -97,7 +99,7 @@ fn add_user(
 
 fn auth_google(
     token: web::Json<auth::GoogleToken>,
-    db: web::Data<Db>,
+    db: web::Data<db::Db>,
     google: web::Data<auth_google::GoogleSignin>,
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
@@ -111,19 +113,15 @@ fn auth_google(
         // create User from token data
         let user = auth::User::new(&token_data.email, &token_data.given_name, "");
 
-        // check that the user is valid by our own standards or throw an error
-        user.is_valid_email("email")?;
-        user.is_valid_username()?;
-
         // check if user exists in our db
         let exists = db.user_exists(&user.username)?;
 
         if !exists {
             // if user doesn't exist, create a new user
-            db.insert_user(&user, &auth)?;
+            db.insert_user(&user)?;
         }
         // todo: prevent google users from changing their username
-        auth.create_token(&user.username, ClaimsDuration::Weeks2)
+        auth.create_token(&user.username, TokenDuration::Weeks2)
     })
     .map_err(|err| {
         println!("auth_google: {}", err);
@@ -137,7 +135,7 @@ fn auth_google(
 }
 
 fn forgot_password(
-    db: web::Data<Db>,
+    db: web::Data<db::Db>,
     send_grid: web::Data<send_grid::SendGrid>,
     user: web::Json<auth::User>,
     auth: web::Data<Auth>,
@@ -152,7 +150,7 @@ fn forgot_password(
 
         // if username is not empty, send a password reset email
         if !username.is_empty() {
-            let token = auth.create_token(&username, ClaimsDuration::Minutes5)?;
+            let token = auth.create_token(&username, TokenDuration::Minutes5)?;
             send_grid.send_forgot_email(&user.email, &token)?;
         }
 
@@ -173,7 +171,7 @@ fn forgot_password(
 
 fn reset_password(
     req: HttpRequest,
-    db: web::Data<Db>,
+    db: web::Data<db::Db>,
     user: web::Json<auth::User>,
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
@@ -185,7 +183,7 @@ fn reset_password(
         let hashed_password = auth.create_hash(&user.password);
         let num = db.update_user_password(&claims.sub, &hashed_password)?;
         if num != 0 {
-            auth.create_token(&user.username, ClaimsDuration::Weeks2)
+            auth.create_token(&user.username, TokenDuration::Weeks2)
         } else {
             Err(AuthError::internal_error("No rows modified for updating password."))
         }
@@ -208,12 +206,9 @@ fn main() {
     let send_grid_key = env::var("AUTH_SEND_GRID_KEY").expect("send grid key not found");
 
     let auth = Auth::new(jwt_secret, salt);
-    // let manager =
-    // PostgresConnectionManager::new(database_url.clone(), r2d2_postgres::TlsMode::None).unwrap();
-    // let pool = r2d2::Pool::builder().max_size(3).build(manager).unwrap();
     let google = auth_google::GoogleSignin::new();
     let send_grid = send_grid::SendGrid::new(&send_grid_key);
-    let db = Db::new(&database_url);
+    let db = db::Db::new(&database_url);
 
     HttpServer::new(move || {
         App::new()

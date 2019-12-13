@@ -1,5 +1,5 @@
-use crate::auth::{User, Auth, ClaimsDuration};
-use crate::auth_error::AuthError;
+use crate::auth::{User, Auth};
+use crate::error::AuthError;
 use r2d2_postgres::r2d2;
 use r2d2_postgres::PostgresConnectionManager;
 // use std::sync::Arc;
@@ -18,13 +18,11 @@ impl Db {
         }
     }
 
-    pub fn insert_user(&self, user: &User, auth: &Auth) -> Result<u64, AuthError> {
-        let hashed_password = auth.create_hash(&user.password.clone());
-
+    pub fn insert_user(&self, user: &User) -> Result<u64, AuthError> {
         let conn = self.pool.get()?;
         match conn.execute(
             "INSERT INTO users (email, username, password) VALUES ($1, $2, $3)",
-            &[&user.email, &user.username, &hashed_password],
+            &[&user.email, &user.username, &user.password],
         ) {
             Ok(modified_rows) => Ok(modified_rows),
             Err(err) => {

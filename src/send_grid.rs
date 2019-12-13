@@ -1,4 +1,4 @@
-use crate::auth_error::AuthError;
+use crate::error::AuthError;
 use reqwest;
 use reqwest::header::*;
 use serde_json::json;
