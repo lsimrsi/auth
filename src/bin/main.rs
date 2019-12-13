@@ -97,15 +97,15 @@ fn add_user(
     })
 }
 
-fn auth_google(
+fn google(
     token: web::Json<auth::GoogleToken>,
     db: web::Data<db::Db>,
-    google: web::Data<auth_google::GoogleSignin>,
+    ggl: web::Data<auth_google::GoogleSignin>,
     auth: web::Data<Auth>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         // decode the google token or throw an error
-        let token_data = match google.decode_token(&token.id_token) {
+        let token_data = match ggl.decode_token(&token.id_token) {
             Ok(td) => td,
             Err(err) => return Err(AuthError::internal_error(&err.to_string())),
         };
@@ -206,14 +206,14 @@ fn main() {
     let send_grid_key = env::var("AUTH_SEND_GRID_KEY").expect("send grid key not found");
 
     let auth = Auth::new(jwt_secret, salt);
-    let google = auth_google::GoogleSignin::new();
+    let google_signin = auth_google::GoogleSignin::new();
     let send_grid = send_grid::SendGrid::new(&send_grid_key);
     let db = db::Db::new(&database_url);
 
     HttpServer::new(move || {
         App::new()
             .data(db.clone())
-            .data(google.clone())
+            .data(google_signin.clone())
             .data(auth.clone())
             .data(send_grid.clone())
             .wrap(middleware::Logger::default())
@@ -225,7 +225,7 @@ fn main() {
                     .route("/check-username", web::post().to_async(check_username))
                     .route("/forgot-password", web::post().to_async(forgot_password))
                     .route("/reset-password", web::post().to_async(reset_password))
-                    .route("/google", web::post().to_async(auth_google)),
+                    .route("/google", web::post().to_async(google)),
             )
             .service(web::scope("/protected").route("/users", web::get().to_async(get_users)))
             .service(fs::Files::new("/", "static/build").index_file("index.html"))
