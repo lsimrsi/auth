@@ -26,7 +26,7 @@ fn check_username(
     .and_then(|_| {
         HttpResponse::Ok()
             .content_type("application/json")
-            .body(make_success_json("username", true))
+            .body(make_success_json("username_check", true))
     })
 }
 

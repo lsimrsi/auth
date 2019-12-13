@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {Link} from 'react-router-dom'
 import './SignIn.css';
 
@@ -23,6 +23,7 @@ function SignIn(props) {
     const [signinError, signinErrorSet] = useState("");
     const [signupError, signupErrorSet] = useState("");
 
+    const keyTimeout = 510;
 
     const onSignupSubmit = async e => {
         e.preventDefault();
@@ -42,15 +43,7 @@ function SignIn(props) {
         });
 
         let json = await res.json();
-
-        checkErrors(json);
-        if (json && json.type === "success") {
-            localStorage.setItem('authapp', json.data);
-            authenticatedSet(true);
-            signupEmailSet("");
-            usernameSet("");
-            signupPasswordSet("");
-        }
+        checkJson(json);
     }
 
     const onSigninSubmit = async e => {
@@ -71,14 +64,7 @@ function SignIn(props) {
         });
 
         let json = await res.json();
-
-        checkErrors(json);
-        if (json && json.type === "success") {
-            localStorage.setItem('authapp', json.data);
-            authenticatedSet(true);
-            signinEmailSet("");
-            signinPasswordSet("");
-        }
+        checkJson(json);
     }
 
     const onInputChange = e => {
@@ -93,17 +79,7 @@ function SignIn(props) {
         }
     }
 
-    const checkErrors = (json) => {
-        signinEmailErrorSet("");
-        signinPasswordErrorSet("");
-        signupEmailErrorSet("");
-        usernameErrorSet("");
-        signupPasswordErrorSet("");
-        signinErrorSet("");
-
-        if (!json) return;
-        if (json.type !== "error") return;
-
+    const updateErrors = (json) => {
         switch (json.context) {
             case "signinEmail": signinEmailErrorSet(json.data); break;
             case "signinPassword": signinPasswordErrorSet(json.data); break;
@@ -115,6 +91,30 @@ function SignIn(props) {
             default: break;
         }
     }
+
+    const checkJson = useCallback((json) => {
+        signinEmailErrorSet("");
+        signinPasswordErrorSet("");
+        signupEmailErrorSet("");
+        usernameErrorSet("");
+        signupPasswordErrorSet("");
+        signinErrorSet("");
+
+        if (!json) return;
+        if (json.type === "error") {
+            updateErrors(json);
+        } else if (json.type === "success") {
+            if (json.context === "username_check") return;
+
+            localStorage.setItem('authapp', json.data);
+            authenticatedSet(true);
+            signupEmailSet("");
+            usernameSet("");
+            signupPasswordSet("");
+            signinEmailSet("");
+            signinPasswordSet("");
+        }
+    }, [authenticatedSet]);
 
     useEffect(() => {
         const onGoogleSignIn = async (googleUser) => {
@@ -131,13 +131,7 @@ function SignIn(props) {
             });
 
             let json = await res.json();
-
-            checkErrors(json);
-
-            if (json && json.type === "success") {
-                localStorage.setItem('authapp', json.data);
-                authenticatedSet(true);
-            }
+            checkJson(json);
         }
 
         const onGoogleSignInFailed = (e) => {
@@ -159,8 +153,7 @@ function SignIn(props) {
         if (window.gapi && !authenticated) {
             addBtn();
         }
-
-    }, [authenticated, authenticatedSet]);
+    }, [authenticated, authenticatedSet, checkJson]);
 
     useEffect(() => {
         let mounted = true;
@@ -181,20 +174,19 @@ function SignIn(props) {
             });
 
             let json = await res.json();
-
-            if (!mounted) return;
-            checkErrors(json);
+            mounted && checkJson(json);
         }
 
         clearTimeout(usernameTimer);
-        setUsernameTimer(setTimeout(onUsernameInputChange, 500));
+        setUsernameTimer(setTimeout(onUsernameInputChange, keyTimeout));
 
         return () => {
             clearTimeout(usernameTimer);
             mounted = false;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [username, authenticated]);
+    // adding usernameTimer locks up the UI
+    // eslint-disable-next-line
+    }, [username, authenticated, checkJson]);
 
     return (
         <main id="auth">
@@ -204,7 +196,7 @@ function SignIn(props) {
                     <form onSubmit={onSigninSubmit}>
                         <input name="signinEmail" placeholder="Email" onChange={onInputChange} value={signinEmail} type="email" />
                         <p className="error">{signinEmailError}</p>
-                        <input name="signinPassword" placeholder="Password" onChange={onInputChange} value={signinPassword} type="signinPassword" type="password" />
+                        <input name="signinPassword" placeholder="Password" onChange={onInputChange} value={signinPassword} type="password" />
                         <Link to="/forgot-password">Forget password?</Link>
                         <p className="error">{signinPasswordError}</p>
                         <input type="submit" value="Submit" />
