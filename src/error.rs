@@ -5,6 +5,7 @@ use r2d2_postgres::r2d2;
 use reqwest;
 use serde_json::{json, to_string_pretty};
 use std::fmt::{self, Formatter, Result as FmtResult};
+use serde::{Serialize};
 
 #[derive(Debug, Serialize)]
 pub struct AuthError {

@@ -3,6 +3,7 @@ use jsonwebtoken as jwt;
 use jwt::{Algorithm, Validation};
 use reqwest;
 use std::sync::Arc;
+use serde::{Serialize, Deserialize};
 
 #[derive(Clone)]
 pub struct GoogleSignin {

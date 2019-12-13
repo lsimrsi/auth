@@ -3,6 +3,7 @@ use argon2::{self, Config};
 use chrono::{Duration, Utc};
 use jsonwebtoken as jwt;
 use jwt::{decode, encode, Header, Validation};
+use serde::{Serialize, Deserialize};
 
 pub static AUTH_APP: &'static str = "Auth App";
 
