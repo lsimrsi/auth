@@ -98,7 +98,7 @@ fn add_user(
 }
 
 fn google(
-    token: web::Json<auth::GoogleToken>,
+    token: web::Json<auth_google::GoogleToken>,
     db: web::Data<db::Db>,
     ggl: web::Data<auth_google::GoogleSignin>,
     auth: web::Data<Auth>,

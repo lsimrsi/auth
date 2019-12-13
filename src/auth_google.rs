@@ -9,6 +9,11 @@ pub struct GoogleSignin {
     client: Arc<reqwest::Client>,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct GoogleToken {
+    pub id_token: String,
+}
+
 #[derive(Deserialize, Debug)]
 struct JWK {
     alg: String,

@@ -6,11 +6,6 @@ use jwt::{decode, encode, Header, Validation};
 
 pub static AUTH_APP: &'static str = "Auth App";
 
-#[derive(Serialize, Deserialize)]
-pub struct GoogleToken {
-    pub id_token: String,
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct User {
     id: Option<i32>,
