@@ -110,7 +110,7 @@ impl Claims {
 
 #[derive(Clone)]
 pub struct Auth {
-    pub jwt_secret: String,
+    jwt_secret: String,
     salt: String,
 }
 
