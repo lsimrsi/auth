@@ -156,7 +156,7 @@ fn forgot_password(
         // if username is not empty, send a password reset email
         if !username.is_empty() {
             let token = auth.create_token(&username, TokenDuration::Minutes5)?;
-            send_grid.send_forgot_email(&user.email, &token)?;
+            send_grid.send_forgot_email(&user.email, &token, &username)?;
         }
 
         // return ok even if the username is empty
