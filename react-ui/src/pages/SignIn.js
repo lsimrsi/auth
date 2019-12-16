@@ -23,6 +23,8 @@ function SignIn(props) {
     const [signinError, signinErrorSet] = useState("");
     const [signupError, signupErrorSet] = useState("");
 
+    const [generalError, generalErrorSet] = useState("");
+
     const keyTimeout = 510;
 
     const onSignupSubmit = async e => {
@@ -88,6 +90,7 @@ function SignIn(props) {
             case "signupPassword": signupPasswordErrorSet(json.data); break;
             case "signin": signinErrorSet(json.data); break;
             case "signup": signupErrorSet(json.data); break;
+            case "general": generalErrorSet(json.data); break;
             default: break;
         }
     }
@@ -99,6 +102,7 @@ function SignIn(props) {
         usernameErrorSet("");
         signupPasswordErrorSet("");
         signinErrorSet("");
+        generalErrorSet("");
 
         if (!json) return;
         if (json.type === "error") {
@@ -218,13 +222,14 @@ function SignIn(props) {
                         <input type="submit" value="Submit" />
                         <p className="error">{signupError}</p>
                     </form>
-                    <div id="gs2"></div>
                 </section>}
 
             {props.authenticated &&
                 <section id="success-content">
                     <h1>Success!</h1>
                 </section>}
+
+            <p id="general-error" className="error">{generalError}</p>
         </main>
     )
 }

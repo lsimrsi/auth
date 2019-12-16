@@ -119,9 +119,12 @@ impl Auth {
         Auth { jwt_secret, salt }
     }
 
-    pub fn create_hash(&self, password: &str) -> String {
+    pub fn create_hash(&self, password: &str) -> Result<String, AuthError> {
         let config = Config::default();
-        argon2::hash_encoded(password.as_bytes(), self.salt.as_bytes(), &config).expect("hash failed")
+        match argon2::hash_encoded(password.as_bytes(), self.salt.as_bytes(), &config) {
+            Ok(hash) => Ok(hash),
+            Err(err) => Err(AuthError::internal_error(&err.to_string())),
+        }
     }
 
     pub fn verify_hash(hash: String, password: String) -> bool {

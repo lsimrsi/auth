@@ -80,7 +80,7 @@ fn add_user(
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     actix_web::web::block(move || {
         user.is_valid_signup()?;
-        let hashed_password = auth.create_hash(&user.password);
+        let hashed_password = auth.create_hash(&user.password)?;
         let mut user = user.clone();
         user.set_password(&hashed_password);
         db.insert_user(&user)?;
@@ -180,7 +180,7 @@ fn reset_password(
     actix_web::web::block(move || {
         user.is_valid_password("resetPassword")?;
         let claims = auth.decode_token(&token_string)?;
-        let hashed_password = auth.create_hash(&user.password);
+        let hashed_password = auth.create_hash(&user.password)?;
         let num = db.update_user_password(&claims.sub, &hashed_password)?;
         if num != 0 {
             auth.create_token(&user.username, TokenDuration::Weeks2)
@@ -253,7 +253,7 @@ fn p404() -> Result<fs::NamedFile, actix_web::Error> {
 
 fn get_server_port() -> u16 {
     env::var("PORT")
-        .unwrap_or_else(|_| 5000.to_string())
+        .unwrap_or(5000.to_string())
         .parse()
         .expect("PORT must be a number")
 }

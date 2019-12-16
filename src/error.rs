@@ -56,7 +56,7 @@ impl From<BlockingError<AuthError>> for AuthError {
     fn from(error: BlockingError<AuthError>) -> Self {
         match error {
             BlockingError::Error(err) => err,
-            _ => AuthError::new("", "", "", 200),
+            BlockingError::Canceled => AuthError::new("", "", "", 200),
         }
     }
 }
@@ -81,7 +81,7 @@ impl From<reqwest::Error> for AuthError {
 
 impl fmt::Display for AuthError {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "{}", to_string_pretty(self).unwrap())
+        write!(f, "{}", to_string_pretty(self).expect("Couldn't format AuthError for display."))
     }
 }
 
@@ -92,7 +92,7 @@ impl ResponseError for AuthError {
             "context": self.context,
             "data": self.client_message
         });
-        HttpResponse::build(StatusCode::from_u16(self.status).unwrap()).json(err_json)
+        HttpResponse::build(StatusCode::from_u16(self.status).expect("Invalid status code given.")).json(err_json)
     }
 }
 

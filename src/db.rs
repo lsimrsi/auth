@@ -2,7 +2,6 @@ use crate::auth::{User, Auth};
 use crate::error::AuthError;
 use r2d2_postgres::r2d2;
 use r2d2_postgres::PostgresConnectionManager;
-// use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct Db {
@@ -11,8 +10,8 @@ pub struct Db {
 
 impl Db {
     pub fn new(url: &str) -> Db {
-        let manager = PostgresConnectionManager::new(url, r2d2_postgres::TlsMode::None).unwrap();
-        let pool = r2d2::Pool::builder().max_size(3).build(manager).unwrap();
+        let manager = PostgresConnectionManager::new(url, r2d2_postgres::TlsMode::None).expect("Couldn't make a new postgres connection manager.");
+        let pool = r2d2::Pool::builder().max_size(3).build(manager).expect("Couldn't make the connection pool.");
         Db {
             pool
         }
@@ -28,7 +27,7 @@ impl Db {
             Err(err) => {
                 if let Some(dberr) = err.as_db() {
                     println!("some dberr");
-                    // unique violation
+                    // 23505 = unique violation
                     if !(dberr.code.code() == "23505") {
                         println!("code doesn't equal 23505");
                         return Err(AuthError::internal_error(&err.to_string()));

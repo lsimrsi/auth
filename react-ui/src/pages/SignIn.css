@@ -2,10 +2,14 @@
     display: grid;
     grid-gap: 20px;
     grid-template-columns: 2fr 1fr 2fr;
-    grid-template-rows: 5fr 5rem;
+    grid-template-rows: 5fr 1rem;
     grid-template-areas:
-        "signin . signup"
-        "social social social";
+        "signin  ....... signup"
+        "general general general";
+}
+
+#auth #general-error {
+    grid-area: general;
 }
 
 #auth #signin {
@@ -14,8 +18,4 @@
 
 #auth #signup {
     grid-area: signup;
-}
-
-#auth #social {
-    grid-area: social;
 }

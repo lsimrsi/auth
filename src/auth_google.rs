@@ -15,8 +15,6 @@ pub struct GoogleSignin {
 
 impl GoogleSignin {
     pub fn new() -> GoogleSignin {
-        // let dt = FixedOffset::east(0).ymd(1985, 11, 08).and_hms(0, 0, 0).timestamp();
-
         GoogleSignin {
             client: Arc::new(reqwest::Client::new()),
             certs: Arc::new(Mutex::new(Certs::new())),
@@ -27,7 +25,10 @@ impl GoogleSignin {
     fn get_new_certs(&self) -> reqwest::Result<(i64, Certs)> {
         let url = "https://www.googleapis.com/oauth2/v3/certs";
         let mut res = self.client.get(url).send()?;
-        let time = res.headers().get("expires").unwrap().to_str().unwrap();
+        let time = match res.headers().get("expires") {
+            Some(expires) => expires.to_str().unwrap_or(""),
+            None => ""
+        };
 
         let new_expiration = match DateTime::parse_from_rfc2822(time) {
             Ok(dt) => dt.timestamp(),
