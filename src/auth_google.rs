@@ -1,10 +1,10 @@
+use chrono::{DateTime, Utc};
 use failure;
 use jsonwebtoken as jwt;
 use jwt::{Algorithm, Validation};
 use reqwest;
-use std::sync::{Mutex, Arc};
-use serde::{Serialize, Deserialize};
-use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct GoogleSignin {
@@ -27,7 +27,7 @@ impl GoogleSignin {
         let mut res = self.client.get(url).send()?;
         let time = match res.headers().get("expires") {
             Some(expires) => expires.to_str().unwrap_or(""),
-            None => ""
+            None => "",
         };
 
         let new_expiration = match DateTime::parse_from_rfc2822(time) {
@@ -119,9 +119,7 @@ struct Certs {
 
 impl Certs {
     fn new() -> Certs {
-        Certs {
-            keys: Vec::new()
-        }
+        Certs { keys: Vec::new() }
     }
 }
 

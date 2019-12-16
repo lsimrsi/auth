@@ -3,9 +3,9 @@ use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, ResponseError};
 use r2d2_postgres::r2d2;
 use reqwest;
+use serde::Serialize;
 use serde_json::{json, to_string_pretty};
 use std::fmt::{self, Formatter, Result as FmtResult};
-use serde::{Serialize};
 
 #[derive(Debug, Serialize)]
 pub struct AuthError {
@@ -81,7 +81,11 @@ impl From<reqwest::Error> for AuthError {
 
 impl fmt::Display for AuthError {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "{}", to_string_pretty(self).expect("Couldn't format AuthError for display."))
+        write!(
+            f,
+            "{}",
+            to_string_pretty(self).expect("Couldn't format AuthError for display.")
+        )
     }
 }
 
@@ -92,7 +96,8 @@ impl ResponseError for AuthError {
             "context": self.context,
             "data": self.client_message
         });
-        HttpResponse::build(StatusCode::from_u16(self.status).expect("Invalid status code given.")).json(err_json)
+        HttpResponse::build(StatusCode::from_u16(self.status).expect("Invalid status code given."))
+            .json(err_json)
     }
 }
 

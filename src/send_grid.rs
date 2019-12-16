@@ -19,11 +19,14 @@ impl SendGrid {
     }
 
     pub fn send_forgot_email(&self, to: &str, token: &str) -> Result<(), AuthError> {
-        let msg = format!("Hi, please use the following link to reset your password:
+        let msg = format!(
+            "Hi, please use the following link to reset your password:
             \n\rhttp://localhost:3000/reset-password?token={}
             \n\rIf you did not initiate this request, you can safely ignore this email.
             \n\rThanks,
-            \n\rAuth App Support", token);
+            \n\rAuth App Support",
+            token
+        );
 
         let data = json!({
           "personalizations": [
@@ -61,7 +64,7 @@ impl SendGrid {
 
         match res.text() {
             Ok(_) => Ok(()),
-            Err(err) => Err(AuthError::internal_error(&err.to_string()))
+            Err(err) => Err(AuthError::internal_error(&err.to_string())),
         }
     }
 }

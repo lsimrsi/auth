@@ -1,20 +1,22 @@
-use crate::auth::{User, Auth};
+use crate::auth::{Auth, User};
 use crate::error::AuthError;
 use r2d2_postgres::r2d2;
 use r2d2_postgres::PostgresConnectionManager;
 
 #[derive(Clone)]
 pub struct Db {
-    pub pool: r2d2::Pool<r2d2_postgres::PostgresConnectionManager>
+    pub pool: r2d2::Pool<r2d2_postgres::PostgresConnectionManager>,
 }
 
 impl Db {
     pub fn new(url: &str) -> Db {
-        let manager = PostgresConnectionManager::new(url, r2d2_postgres::TlsMode::None).expect("Couldn't make a new postgres connection manager.");
-        let pool = r2d2::Pool::builder().max_size(3).build(manager).expect("Couldn't make the connection pool.");
-        Db {
-            pool
-        }
+        let manager = PostgresConnectionManager::new(url, r2d2_postgres::TlsMode::None)
+            .expect("Couldn't make a new postgres connection manager.");
+        let pool = r2d2::Pool::builder()
+            .max_size(3)
+            .build(manager)
+            .expect("Couldn't make the connection pool.");
+        Db { pool }
     }
 
     pub fn insert_user(&self, user: &User) -> Result<u64, AuthError> {
@@ -93,7 +95,6 @@ impl Db {
     }
 
     pub fn verify_user(&self, user: &User) -> Result<String, AuthError> {
-
         let conn = self.pool.get()?;
 
         let rows = match conn.query(

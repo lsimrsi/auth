@@ -15,8 +15,13 @@ fn check_username(
     actix_web::web::block(move || {
         let exists = db.user_exists(&user.username)?;
         match exists {
-            true => Err(AuthError::new("username", "This username has already been taken.", "", 500)),
-            false => Ok(())
+            true => Err(AuthError::new(
+                "username",
+                "This username has already been taken.",
+                "",
+                500,
+            )),
+            false => Ok(()),
         }
     })
     .map_err(|err| {
@@ -185,7 +190,9 @@ fn reset_password(
         if num != 0 {
             auth.create_token(&user.username, TokenDuration::Weeks2)
         } else {
-            Err(AuthError::internal_error("No rows modified for updating password."))
+            Err(AuthError::internal_error(
+                "No rows modified for updating password.",
+            ))
         }
     })
     .map_err(|err| {
