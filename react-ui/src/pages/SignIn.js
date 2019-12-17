@@ -1,28 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {Link} from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import './SignIn.css';
 
 function SignIn(props) {
     let { authenticated, authenticatedSet } = props;
 
     const [signinEmail, signinEmailSet] = useState("");
-    const [signinPassword, signinPasswordSet] = useState("");
-
     const [signinEmailError, signinEmailErrorSet] = useState("");
+    const [signinPassword, signinPasswordSet] = useState("");
     const [signinPasswordError, signinPasswordErrorSet] = useState("");
 
     const [signupEmail, signupEmailSet] = useState("");
+    const [signupEmailError, signupEmailErrorSet] = useState("");
     const [username, usernameSet] = useState("");
+    const [usernameError, usernameErrorSet] = useState("");
     const [usernameTimer, usernameTimerSet] = useState("");
     const [signupPassword, signupPasswordSet] = useState("");
-
-    const [signupEmailError, signupEmailErrorSet] = useState("");
-    const [usernameError, usernameErrorSet] = useState("");
     const [signupPasswordError, signupPasswordErrorSet] = useState("");
 
     const [signinError, signinErrorSet] = useState("");
     const [signupError, signupErrorSet] = useState("");
-
     const [generalError, generalErrorSet] = useState("");
 
     const keyTimeout = 510;
@@ -188,8 +185,8 @@ function SignIn(props) {
             clearTimeout(usernameTimer);
             mounted = false;
         };
-    // adding usernameTimer locks up the UI
-    // eslint-disable-next-line
+        // adding usernameTimer to dependency array locks up the UI
+        // eslint-disable-next-line
     }, [username, authenticated, checkJson]);
 
     return (
