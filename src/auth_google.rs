@@ -22,7 +22,7 @@ impl GoogleSignin {
         }
     }
 
-    fn get_new_certs(&self) -> reqwest::Result<(i64, Certs)> {
+    fn get_new_certs(&self) -> Result<(i64, Certs), failure::Error> {
         let url = "https://www.googleapis.com/oauth2/v3/certs";
         let mut res = self.client.get(url).send()?;
         let time = match res.headers().get("expires") {
@@ -38,15 +38,15 @@ impl GoogleSignin {
         Ok((new_expiration, res.json()?))
     }
 
-    fn get_cached_certs(&self) -> Result<Certs, failure::Error> {
+    fn get_cached_certs(&self) -> Result<(i64, Certs), failure::Error> {
         let mut current_certs = match self.certs.lock() {
             Ok(cc) => cc,
-            Err(err) => return Err(failure::err_msg(err.to_string())),
+            Err(_) => return self.get_new_certs(),
         };
 
         let mut current_expiration = match self.cert_expiration.lock() {
             Ok(ce) => ce,
-            Err(err) => return Err(failure::err_msg(err.to_string())),
+            Err(_) => return self.get_new_certs(),
         };
 
         // if certs are expired or empty, get new ones
@@ -56,11 +56,11 @@ impl GoogleSignin {
             *current_certs = new_certs;
         }
 
-        Ok(current_certs.clone())
+        Ok((current_expiration.clone(), current_certs.clone()))
     }
 
     pub fn decode_token(&self, token: &str) -> Result<GooglePayload, failure::Error> {
-        let certs: Certs = self.get_cached_certs()?;
+        let certs: Certs = self.get_cached_certs()?.1;
 
         let claimed_kid = jwt::decode_header(&token)?.kid.unwrap_or_default();
         let mut e = "";
@@ -147,4 +147,16 @@ pub struct GooglePayload {
     pub iat: i32,
     pub exp: i32,
     pub jti: String,
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn get_cached_certs_works_with_two_immediate_calls() {
+        let gsi = GoogleSignin::new();
+        assert!(gsi.get_cached_certs().is_ok());
+        assert!(gsi.get_cached_certs().is_ok());
+    }
 }
