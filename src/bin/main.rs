@@ -88,7 +88,7 @@ fn add_user(
         let hashed_password = auth.create_hash(&user.password)?;
         let mut user = user.clone();
         user.set_password(&hashed_password);
-        db.insert_user(&user)?;
+        db.add_user(&user)?;
         auth.create_token(&user.username, TokenDuration::Weeks2)
     })
     .map_err(|err| {
@@ -123,7 +123,7 @@ fn google(
 
         if !exists {
             // if user doesn't exist, create a new user
-            db.insert_user(&user)?;
+            db.add_user(&user)?;
         }
         // todo: prevent google users from changing their username
         auth.create_token(&user.username, TokenDuration::Weeks2)

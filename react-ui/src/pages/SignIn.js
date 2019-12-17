@@ -13,7 +13,7 @@ function SignIn(props) {
 
     const [signupEmail, signupEmailSet] = useState("");
     const [username, usernameSet] = useState("");
-    const [usernameTimer, setUsernameTimer] = useState("");
+    const [usernameTimer, usernameTimerSet] = useState("");
     const [signupPassword, signupPasswordSet] = useState("");
 
     const [signupEmailError, signupEmailErrorSet] = useState("");
@@ -182,7 +182,7 @@ function SignIn(props) {
         }
 
         clearTimeout(usernameTimer);
-        setUsernameTimer(setTimeout(onUsernameInputChange, keyTimeout));
+        usernameTimerSet(setTimeout(onUsernameInputChange, keyTimeout));
 
         return () => {
             clearTimeout(usernameTimer);

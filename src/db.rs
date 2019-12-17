@@ -19,10 +19,9 @@ impl Db {
         Db { pool }
     }
 
-    pub fn insert_user(&self, user: &User) -> Result<u64, AuthError> {
+    pub fn add_user(&self, user: &User) -> Result<u64, AuthError> {
         let conn = self.pool.get()?;
-        match conn.execute(
-            "INSERT INTO users (email, username, password) VALUES ($1, $2, $3)",
+        match conn.execute("CALL add_user($1, $2, $3);",
             &[&user.email, &user.username, &user.password],
         ) {
             Ok(modified_rows) => Ok(modified_rows),
